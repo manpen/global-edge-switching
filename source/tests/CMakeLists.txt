@@ -1,0 +1,2 @@
+add_executable(TestAlgorithms TestAlgorithms.cpp)
+target_link_libraries(TestAlgorithms libedgeswitch)
