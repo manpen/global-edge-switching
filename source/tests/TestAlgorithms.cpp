@@ -10,6 +10,7 @@
 #include <es/Graph.hpp>
 #include <es/Generators.hpp>
 
+#include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 
@@ -68,6 +69,7 @@ int main() {
                     edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
                 >>>("robin-s", n, target_m, gen); */
 
+                run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
 

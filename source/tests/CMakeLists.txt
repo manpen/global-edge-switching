@@ -1,2 +1,5 @@
 add_executable(TestAlgorithms TestAlgorithms.cpp)
 target_link_libraries(TestAlgorithms libedgeswitch)
+
+add_executable(TestGraph TestGraph.cpp)
+target_link_libraries(TestGraph libedgeswitch)

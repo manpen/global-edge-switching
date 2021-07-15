@@ -1,5 +1,9 @@
 #pragma once
 
+#include <utility>
+#include <vector>
+#include <span>
+#include <cstdint>
 #include <nmmintrin.h>
 
 namespace es {
@@ -57,7 +61,14 @@ struct Graph {
         return degrees_[u];
     }
 
+    [[nodiscard]] const auto& degrees() const noexcept {return degrees_;}
+
+    std::pair<Graph, std::vector<node_t>> get_sorted_by_degree(bool ascending = false) const;
+    std::vector<node_t> apply_mapping(std::span<node_t> mapping);
+
 private:
+    Graph() = default;
+
     std::vector<edge_t> edges_;
     std::vector<node_t> degrees_;
 };

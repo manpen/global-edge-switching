@@ -4,19 +4,18 @@
 #include <vector>
 
 #include <es/algorithms/AlgorithmBase.hpp>
+#include <tlx/container/btree_set.hpp>
 
 namespace es {
 
 template<typename Set = std::unordered_set<edge_t>>
 struct AlgorithmVectorSet : public AlgorithmBase {
 public:
-    AlgorithmVectorSet(const Graph& graph)
-        : AlgorithmBase(graph)
-    {
+    AlgorithmVectorSet(const Graph &graph) : AlgorithmBase(graph) {
         prepare_hashset(edge_set_, graph.number_of_edges());
         edge_list_.reserve(graph.number_of_edges());
 
-        for(auto edge : graph.edges()) {
+        for (auto edge : graph.edges()) {
             edge_list_.emplace_back(edge);
             auto res = edge_set_.insert(edge);
             assert(res.second);
@@ -68,7 +67,7 @@ public:
 
     Graph get_graph() override {
         Graph result(input_graph_.number_of_nodes());
-        for(auto e : edge_list_)
+        for (auto e : edge_list_)
             result.add_edge(e);
         return result;
     }
@@ -83,9 +82,12 @@ private:
     }
 
     template<class Value, class HashFcn, class EqualKey, class Alloc>
-    void prepare_hashset(google::dense_hash_set <Value, HashFcn, EqualKey, Alloc> &hs, size_t) {
+    void prepare_hashset(google::dense_hash_set<Value, HashFcn, EqualKey, Alloc> &hs, size_t) {
         hs.set_empty_key(std::numeric_limits<edge_t>::max());
         hs.set_deleted_key(std::numeric_limits<edge_t>::max() - 1);
+    }
+
+    void prepare_hashset(tlx::btree_set<long unsigned int> &hs, size_t num_edges) {
     }
 };
 
