@@ -8,18 +8,19 @@
 #include <tsl/robin_set.h>
 
 #include <es/Graph.hpp>
-#include <es/Generators.hpp>
 
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
+
+#include <networkit/generators/ErdosRenyiGenerator.hpp>
 
 using namespace es;
 
 template <typename Algo>
 void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen) {
     double p = std::min(1.0, (2.0 * target_m) / n / (n - 1));
-    auto input_graph = generate_gnp(n, p, gen);
+    auto input_graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
 
     Algo es(input_graph);
 

@@ -13,22 +13,21 @@
 #include <es/Graph.hpp>
 #include <es/ScopedTimer.hpp>
 #include <es/RandomBits.hpp>
-#include <es/Generators.hpp>
 
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 
-#include <tlx/container/btree_set.hpp>
-
 #include <es/AdjacencyVector.hpp>
+
+#include <networkit/generators/ErdosRenyiGenerator.hpp>
 
 using namespace es;
 
 template <typename Algo>
 void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool sorted = false) {
     double p = (2.0 * target_m) / n / (n - 1);
-    auto graph = generate_gnp(n, p, gen);
+    auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
 
     Algo es(graph);
 

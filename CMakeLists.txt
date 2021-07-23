@@ -10,12 +10,13 @@ add_subdirectory(extlib/networkit)
 add_subdirectory(extlib/robin-map)
 add_subdirectory(extlib/range-v3)
 
-add_library(libedgeswitch
-        source/es/Generators.cpp)
-target_include_directories(libedgeswitch PUBLIC include)
+add_library(libedgeswitch INTERFACE)
+target_include_directories(libedgeswitch
+        INTERFACE include)
 target_link_libraries(libedgeswitch
-        PUBLIC tlx range-v3 networkit
-        INTERFACE hopscotch_map robin_map )
+        INTERFACE
+         tlx range-v3 networkit
+         hopscotch_map robin_map )
 
 add_executable(edge_switching main.cpp)
 target_link_libraries(edge_switching PRIVATE libedgeswitch)
