@@ -1,15 +1,15 @@
 #pragma once
 
-#include <utility>
+#include <networkit/graph/Graph.hpp>
+
 #include <vector>
-#include <span>
 #include <cstdint>
 #include <nmmintrin.h>
 
 namespace es {
 
-using node_t = uint32_t;
-using edge_t = uint64_t;
+using node_t = std::uint32_t;
+using edge_t = std::uint64_t;
 
 inline edge_t to_edge(node_t a, node_t b) {
     bool swap = (a > b);
@@ -19,8 +19,17 @@ inline edge_t to_edge(node_t a, node_t b) {
     return (static_cast<edge_t>(a) << 32) | b;
 }
 
-inline std::pair <node_t, node_t> to_nodes(edge_t e) {
+inline std::pair<node_t, node_t> to_nodes(edge_t e) {
     return {static_cast<node_t>(e >> 32), static_cast<node_t>(e)};
+}
+
+inline std::vector<node_t> degree_sequence_of(const NetworKit::Graph& graph) {
+    std::vector<node_t> degrees;
+    degrees.reserve(2 * graph.numberOfEdges());
+    graph.forNodes([&](NetworKit::node v){
+        degrees.push_back(graph.degree(v));
+    });
+    return degrees;
 }
 
 struct edge_hash_crc32 {
@@ -30,47 +39,6 @@ struct edge_hash_crc32 {
 
         return (l | (h << 32));
     }
-};
-
-struct Graph {
-    Graph(node_t number_of_nodes, size_t number_of_edges = 0)
-        : degrees_(number_of_nodes)
-    {
-        if (number_of_edges)
-            edges_.reserve(number_of_edges);
-    }
-
-
-    [[nodiscard]] node_t number_of_nodes() const noexcept {return degrees_.size();}
-    [[nodiscard]] node_t number_of_edges() const noexcept {return edges_.size();}
-
-    void add_edge(edge_t e) {
-        auto [u, v] = to_nodes(e);
-        add_edge(u, v);
-    }
-
-    void add_edge(node_t u, node_t v) {
-        ++degrees_[u];
-        ++degrees_[v];
-        edges_.push_back(to_edge(u, v));
-    }
-
-    [[nodiscard]] const auto& edges() const noexcept {return edges_;}
-
-    [[nodiscard]] node_t degree_of(node_t u) const noexcept {
-        return degrees_[u];
-    }
-
-    [[nodiscard]] const auto& degrees() const noexcept {return degrees_;}
-
-    std::pair<Graph, std::vector<node_t>> get_sorted_by_degree(bool ascending = false) const;
-    std::vector<node_t> apply_mapping(std::span<node_t> mapping);
-
-private:
-    Graph() = default;
-
-    std::vector<edge_t> edges_;
-    std::vector<node_t> degrees_;
 };
 
 }
