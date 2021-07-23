@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.18)
 project(edge_switching)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -9,7 +9,6 @@ add_subdirectory(extlib/hopscotch-map)
 add_subdirectory(extlib/networkit)
 add_subdirectory(extlib/robin-map)
 add_subdirectory(extlib/range-v3)
-add_subdirectory(extlib/tlx)
 
 add_library(libedgeswitch
         source/es/Generators.cpp)
