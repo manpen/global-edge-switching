@@ -58,7 +58,6 @@ int main() {
         >>>("robin-s", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-        run_benchmark<AlgorithmVectorSet<tlx::btree_set<edge_t>>>("btree", n, target_m, gen);
 
         std::cout << "\n";
     }

@@ -66,10 +66,6 @@ int main() {
             edge_t target_m = n * d;
 
             for(int repeat = 0; repeat < 5; ++repeat) {
-                /*run_test<AlgorithmSet<tsl::robin_set<
-                    edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
-                >>>("robin-s", n, target_m, gen); */
-
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
