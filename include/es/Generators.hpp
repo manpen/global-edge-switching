@@ -5,6 +5,6 @@
 
 namespace es {
 
-Graph generate_gnp(node_t n, double p, std::mt19937_64 &gen);
+NetworKit::Graph generate_gnp(node_t n, double p, std::mt19937_64 &gen);
 
 }

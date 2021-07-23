@@ -8,17 +8,17 @@ namespace es {
 
 struct AlgorithmAdjacencyVector : public AlgorithmBase {
 public:
-    AlgorithmAdjacencyVector(const Graph& input_graph)
+    AlgorithmAdjacencyVector(const NetworKit::Graph& input_graph)
         : AlgorithmBase(input_graph),
-        graph_(input_graph.degrees())
+        graph_(degree_sequence_of(input_graph))
     {
-        edges_.reserve(input_graph.number_of_edges());
+        edges_.reserve(input_graph.numberOfEdges());
 
-        for(auto edge : input_graph.edges()) {
-            auto [u, v] = to_nodes(edge);
+        input_graph.forEdges([&](NetworKit::node u, NetworKit::node v){
+            auto edge = to_edge(u, v);
             graph_.add_edge(u, v);
             edges_.push_back(edge);
-        }
+        });
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
@@ -58,10 +58,10 @@ public:
         return successful_switches;
     }
 
-    Graph get_graph() override {
-        Graph result(input_graph_.number_of_nodes(), input_graph_.number_of_edges());
+    NetworKit::Graph get_graph() override {
+        NetworKit::Graph result(input_graph_.numberOfNodes(), input_graph_.numberOfEdges());
 
-        graph_.for_each([&] (auto u, auto v) {result.add_edge(u, v);});
+        graph_.for_each([&] (auto u, auto v) {result.addEdge(u, v);});
 
         return result;
     }

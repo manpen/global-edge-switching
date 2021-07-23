@@ -12,8 +12,7 @@ add_subdirectory(extlib/range-v3)
 add_subdirectory(extlib/tlx)
 
 add_library(libedgeswitch
-        source/es/Generators.cpp
-        source/es/Graph.cpp)
+        source/es/Generators.cpp)
 target_include_directories(libedgeswitch PUBLIC include)
 target_link_libraries(libedgeswitch
         PUBLIC tlx range-v3 networkit

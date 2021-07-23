@@ -10,16 +10,17 @@ namespace es {
 template<typename Set = std::unordered_set <edge_t>>
 struct AlgorithmSet : public AlgorithmBase {
 public:
-    AlgorithmSet(const Graph& graph)
+    AlgorithmSet(const NetworKit::Graph& graph)
         : AlgorithmBase(graph)
     {
         edge_set_.max_load_factor(0.7);
-        prepare_hashset(edge_set_, graph.number_of_edges());
+        prepare_hashset(edge_set_, graph.numberOfEdges());
 
-        for(auto edge : graph.edges()) {
+        graph.forEdges([&](NetworKit::node u, NetworKit::node v){
+            auto edge = to_edge(u, v);
             auto res = edge_set_.insert(edge);
             assert(res.second);
-        }
+        });
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
@@ -63,10 +64,12 @@ public:
         return successful_switches;
     }
 
-    Graph get_graph() override {
-        Graph result(input_graph_.number_of_nodes());
-        for(auto e : edge_set_)
-            result.add_edge(e);
+    NetworKit::Graph get_graph() override {
+        NetworKit::Graph result(input_graph_.numberOfNodes());
+        for(auto e : edge_set_) {
+            auto[u, v] = to_nodes(e);
+            result.addEdge(u, v);
+        }
         return result;
     }
 

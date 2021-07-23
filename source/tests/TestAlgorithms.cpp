@@ -33,23 +33,23 @@ void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64
 // check degrees are maintained
     edge_t num_edges = 0;
     for(node_t i = 0; i < n; ++i) {
-        num_edges += input_graph.degree_of(i);
-        if (input_graph.degree_of(i) != output_graph.degree_of(i))
+        num_edges += input_graph.degree(i);
+        if (input_graph.degree(i) != output_graph.degree(i))
             abort();
     }
 
-    if (num_edges / 2 != input_graph.number_of_edges())
+    if (num_edges / 2 != input_graph.numberOfEdges())
         abort();
 
 // check that there are not self-loops or multi-edges
     std::unordered_set<edge_t> edges;
-    for(auto e : output_graph.edges()) {
+    output_graph.forEdges([&](NetworKit::node u, NetworKit::node v){
+        if (u == v) abort();
+
+        auto e = to_edge(u, v);
         auto r = edges.insert(e);
         if (!r.second) abort();
-
-        auto [u, v] = to_nodes(e);
-        if (u == v) abort();
-    }
+    });
 }
 
 int main() {

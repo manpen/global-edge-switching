@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 
+#include <google/dense_hash_set>
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <tlx/container/btree_set.hpp>
 
@@ -11,15 +12,16 @@ namespace es {
 template<typename Set = std::unordered_set<edge_t>>
 struct AlgorithmVectorSet : public AlgorithmBase {
 public:
-    AlgorithmVectorSet(const Graph &graph) : AlgorithmBase(graph) {
-        prepare_hashset(edge_set_, graph.number_of_edges());
-        edge_list_.reserve(graph.number_of_edges());
+    AlgorithmVectorSet(const NetworKit::Graph &graph) : AlgorithmBase(graph) {
+        prepare_hashset(edge_set_, graph.numberOfEdges());
+        edge_list_.reserve(graph.numberOfEdges());
 
-        for (auto edge : graph.edges()) {
+        graph.forEdges([&](NetworKit::node u, NetworKit::node v){
+            auto edge = to_edge(u, v);
             edge_list_.emplace_back(edge);
             auto res = edge_set_.insert(edge);
             assert(res.second);
-        }
+        });
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
@@ -65,10 +67,12 @@ public:
         return successful_switches;
     }
 
-    Graph get_graph() override {
-        Graph result(input_graph_.number_of_nodes());
-        for (auto e : edge_list_)
-            result.add_edge(e);
+    NetworKit::Graph get_graph() override {
+        NetworKit::Graph result(input_graph_.numberOfNodes());
+        for(auto e : edge_list_) {
+            auto[u, v] = to_nodes(e);
+            result.addEdge(u, v);
+        }
         return result;
     }
 

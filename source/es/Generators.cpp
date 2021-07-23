@@ -2,8 +2,8 @@
 
 namespace es {
 
-Graph generate_gnp(node_t n, double p, std::mt19937_64 &gen) {
-    Graph result(n, n * p * n);
+NetworKit::Graph generate_gnp(node_t n, double p, std::mt19937_64 &gen) {
+    NetworKit::Graph result(n, n * p * n);
 
     std::geometric_distribution<edge_t> distr{p};
 
@@ -16,7 +16,7 @@ Graph generate_gnp(node_t n, double p, std::mt19937_64 &gen) {
             if (u == n) return result;
         }
 
-        result.add_edge(u, v);
+        result.addEdge(u, v);
 
         v += 1 + distr(gen);
     }
