@@ -18,6 +18,7 @@
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelVector.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalES.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -60,6 +61,7 @@ int main() {
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
         run_benchmark<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
+        run_benchmark<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
 
         std::cout << "\n";
     }
