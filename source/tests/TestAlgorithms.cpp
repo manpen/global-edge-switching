@@ -12,6 +12,7 @@
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
+#include <es/algorithms/AlgorithmParallelVector.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 
@@ -31,9 +32,9 @@ void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64
 
     auto output_graph = es.get_graph();
 
-// check degrees are maintained
+    // check degrees are maintained
     edge_t num_edges = 0;
-    for(node_t i = 0; i < n; ++i) {
+    for (node_t i = 0; i < n; ++i) {
         num_edges += input_graph.degree(i);
         if (input_graph.degree(i) != output_graph.degree(i))
             abort();
@@ -42,7 +43,7 @@ void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64
     if (num_edges / 2 != input_graph.numberOfEdges())
         abort();
 
-// check that there are not self-loops or multi-edges
+    // check that there are no self-loops or multi-edges
     std::unordered_set<edge_t> edges;
     output_graph.forEdges([&](NetworKit::node u, NetworKit::node v){
         if (u == v) abort();
@@ -65,10 +66,11 @@ int main() {
 
             edge_t target_m = n * d;
 
-            for(int repeat = 0; repeat < 5; ++repeat) {
+            for (int repeat = 0; repeat < 10; ++repeat) {
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
+                run_test<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
 
                 std::cout << "\n";
             }

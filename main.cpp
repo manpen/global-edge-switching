@@ -17,6 +17,7 @@
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
+#include <es/algorithms/AlgorithmParallelVector.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -36,28 +37,29 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
         const auto switches_per_edge = 10;
         const auto requested_swichtes = switches_per_edge * target_m;
         const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
-        std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_swichtes) << "\n";
+        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / target_m) << "M \n";
         std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << switches_per_edge / timer.elapsedSeconds() << "M \n";
+        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / target_m) / timer.elapsedSeconds() << "M \n";
     }
 }
 
 int main() {
     std::mt19937_64 gen{0};
 
-    node_t n = 1<<16;
-    edge_t target_m = n * 5.44;
+    node_t n = 1<<20;
+    edge_t target_m = n * 1.44;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
-        run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
-        run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
+        //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
+        //run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
 
 
-        run_benchmark<AlgorithmSet<tsl::robin_set<
+        /*run_benchmark<AlgorithmSet<tsl::robin_set<
             edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
-        >>>("robin-s", n, target_m, gen);
-        run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+        >>>("robin-s", n, target_m, gen);*/
+        //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
+        run_benchmark<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
 
         std::cout << "\n";
     }
