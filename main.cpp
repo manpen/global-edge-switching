@@ -17,6 +17,7 @@
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
+#include <es/algorithms/AlgorithmParallelNaive.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -25,11 +26,13 @@
 using namespace es;
 
 template <typename Algo>
-void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool sorted = false) {
+void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen) {
     double p = (2.0 * target_m) / n / (n - 1);
     auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
 
+    incpwl::ScopedTimer init_timer;
     Algo es(graph);
+    std::cout << label << ": Init " << init_timer.elapsedSeconds() << "s\n";
 
     {
         incpwl::ScopedTimer timer;
@@ -45,18 +48,18 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 int main() {
     std::mt19937_64 gen{0};
 
-    node_t n = 1<<16;
+    node_t n = 1<<20;
     edge_t target_m = n * 5.44;
 
-    for (int repeat = 0; repeat < 5; ++repeat) {
-        run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
-        run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
+    for (int repeat = 0; repeat < 1; ++repeat) {
+        //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
 
+        run_benchmark<AlgorithmParallelNaive>("par-naive", n, target_m, gen);
 
-        run_benchmark<AlgorithmSet<tsl::robin_set<
-            edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
-        >>>("robin-s", n, target_m, gen);
-        run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+        //run_benchmark<AlgorithmSet<tsl::robin_set<
+        //    edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
+        //>>>("robin-s", n, target_m, gen);
+        //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
 
         std::cout << "\n";
