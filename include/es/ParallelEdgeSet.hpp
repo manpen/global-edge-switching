@@ -3,6 +3,7 @@
 #include <cassert>
 #include <atomic>
 #include <vector>
+#include <memory>
 
 #include <nmmintrin.h>
 
@@ -104,34 +105,54 @@ public:
 
     // rebuilding
     void rebuild() {
-        incpwl::ScopedTimer timer("rebuild");
+        incpwl::ScopedTimer timer;
 
         auto size = storage_.size() - 1;
-        ParallelEdgeSet<Growth> new_instance(size, 1.0, hash_bias_ + 31);
+        bool fresh_rebuild_instance = !rebuild_instance_;
+        if (fresh_rebuild_instance) {
+            rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_ + 31);
+        }
 
         size_t empty_slots = 0;
         size_t num_items = 0;
 
-        #pragma omp parallel for reduction(+:empty_slots, num_items)
-        for (size_t i = 0; i != size; ++i) {
-            auto value = data_begin_[i];
-            empty_slots += (value == kEmpty);
-            if (value == kEmpty || value == kDeleted)
-                continue;
+        #pragma omp parallel reduction(+:empty_slots, num_items)
+        {
+            if (!fresh_rebuild_instance) {
+                #pragma omp for
+                for (size_t i = 0; i != size; ++i) {
+                    rebuild_instance_->data_begin_[i] = kEmpty;
+                }
+            }
 
-            assert(!is_locked(value));
+            #pragma omp for
+            for (size_t i = 0; i != size; ++i) {
+                auto value = data_begin_[i];
+                empty_slots += (value == kEmpty);
+                if (value == kEmpty || value == kDeleted)
+                    continue;
 
-            auto it = new_instance.insert(value);
-            assert(it != nullptr);
+                assert(!is_locked(value));
 
-            ++num_items;
+                auto it = rebuild_instance_->insert(value);
+                assert(it != nullptr);
+
+                ++num_items;
+            }
         }
 
-        *this = std::move(new_instance);
+        // we will now switch the rebuild instance with us; only one thing we have to make sure:
+        // we do not want to switch the pointer to the rebuild instance (next time, we will rebuild
+        // it will start again from *this and not from *rebuild_instance).
+        auto ptr_to_org_rebuild_instance = rebuild_instance_.get();
+        std::swap(*this, *rebuild_instance_);
+        rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
 
         if (0) {
             std::cout << "Load factor " << (100. * num_items / size) << "%. " << "Empty slots " << (100. * empty_slots / size) << "%\n";
         }
+
+        timer.report("rebuild");
     }
 
     [[nodiscard]] size_t capacity() const noexcept {
@@ -148,6 +169,8 @@ private:
 
     value_type *data_begin_;
     value_type *data_end_;
+
+    std::unique_ptr<ParallelEdgeSet> rebuild_instance_;
 
     [[nodiscard]] iterator_type insert(value_type reference_locked) noexcept {
         const auto reference_payload = get_payload(reference_locked);
