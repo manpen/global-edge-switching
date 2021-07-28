@@ -46,17 +46,14 @@ public:
 
                 // attempt to claim these edges
                 bool expected1 = true;
-                if (!available_[index1].compare_exchange_strong(expected1, false,
+                while (!available_[index1].compare_exchange_weak(expected1, false,
                                                                  std::memory_order_release,
                                                                  std::memory_order_relaxed)) continue;
                 bool expected2 = true;
-                if (!available_[index2].compare_exchange_strong(expected2,
+                while (!available_[index2].compare_exchange_weak(expected2,
                                                                  false,
                                                                  std::memory_order_release,
-                                                                 std::memory_order_relaxed)) {
-                    available_[index1].store(true, std::memory_order_release);
-                    continue;
-                }
+                                                                 std::memory_order_relaxed)) continue;
 
                 const edge_t e1 = edge_list_[index1];
                 const edge_t e2 = edge_list_[index2];
