@@ -8,11 +8,13 @@
 #include <tsl/robin_set.h>
 
 #include <es/Graph.hpp>
+#include <es/ThreadsafeSetLockedList.hpp>
 
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelVector.hpp>
+#include <es/algorithms/AlgorithmParallelVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalES.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
@@ -72,6 +74,7 @@ int main() {
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
                 run_test<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
+                run_test<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
                 run_test<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
 
                 std::cout << "\n";

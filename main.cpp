@@ -13,12 +13,14 @@
 #include <es/Graph.hpp>
 #include <es/ScopedTimer.hpp>
 #include <es/RandomBits.hpp>
+#include <es/ThreadsafeSetLockedList.hpp>
 
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelVector.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalES.hpp>
+#include <es/algorithms/AlgorithmParallelVectorSet.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -62,6 +64,7 @@ int main() {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
         run_benchmark<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
         run_benchmark<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
+        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
 
         std::cout << "\n";
     }
