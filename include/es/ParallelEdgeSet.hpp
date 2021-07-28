@@ -110,8 +110,10 @@ public:
         auto size = storage_.size() - 1;
         bool fresh_rebuild_instance = !rebuild_instance_;
         if (fresh_rebuild_instance) {
-            rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_ + 31);
+            rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_);
         }
+
+        rebuild_instance_->hash_bias_ += 0x1234; // change hash bias every iteration to smooth out collision prone hash functions
 
         size_t empty_slots = 0;
         size_t num_items = 0;

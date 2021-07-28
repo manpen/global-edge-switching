@@ -20,9 +20,17 @@ public:
         graph.forEdges([&](NetworKit::node u, NetworKit::node v){
             auto edge = to_edge(u, v);
             edge_list_.emplace_back(edge);
-            auto res = edge_set_.insert(u, v);
             assert(res);
         });
+
+        auto m = edge_list_.size();
+
+        #pragma omp parallel for
+        for(size_t i = 0; i < m; ++i) {
+            auto [u, v] = to_nodes(edge_list_[i]);
+            auto unlocked_ticket = edge_set_.insert(u, v);
+            assert(unlocked_ticket != nullptr);
+        }
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
