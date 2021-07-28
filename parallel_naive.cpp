@@ -34,7 +34,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 
     {
         incpwl::ScopedTimer timer;
-        const auto switches_per_edge = 10;
+        const auto switches_per_edge = 50;
         const auto requested_switches = switches_per_edge * target_m;
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
         std::cout << label << ": Switches requested: " << requested_switches << "\n";

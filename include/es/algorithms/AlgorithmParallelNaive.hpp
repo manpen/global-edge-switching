@@ -20,7 +20,6 @@ public:
         graph.forEdges([&](NetworKit::node u, NetworKit::node v){
             auto edge = to_edge(u, v);
             edge_list_.emplace_back(edge);
-            assert(res);
         });
 
         auto m = edge_list_.size();
