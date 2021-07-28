@@ -33,9 +33,8 @@ public:
     static constexpr value_type kEmpty = -1;
     static constexpr value_type kDeleted = kEmpty - 1;
 
-    ParallelEdgeSet(size_t max_size, double load_factor = 4.0, uint64_t hash_bias = 0x12345678)
-        : max_size_(static_cast<size_t>(max_size * load_factor)), growth_(max_size_), storage_(max_size_ + 1, kEmpty), hash_bias_(hash_bias)
-    {
+    ParallelEdgeSet(size_t max_size, double load_factor = 4.0, uint64_t hash_bias = 0x12345678) : max_size_(
+        static_cast<size_t>(max_size * load_factor)), growth_(max_size_), storage_(max_size_ + 1, kEmpty), hash_bias_(hash_bias) {
         assert(load_factor >= 1.0);
 
         // align pointer
@@ -45,8 +44,9 @@ public:
         data_end_ = data_begin_ + max_size_;
     }
 
-    ParallelEdgeSet(ParallelEdgeSet&&) = default;
-    ParallelEdgeSet& operator=(ParallelEdgeSet&&) = default;
+    ParallelEdgeSet(ParallelEdgeSet &&) = default;
+
+    ParallelEdgeSet &operator=(ParallelEdgeSet &&) = default;
 
     // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
     // the second entry returns a pointer if the bucket could be locked
@@ -66,7 +66,8 @@ public:
             if (get_payload(value) == reference_payload) {
                 // we found the correct bucket; let's try to lock it
                 auto reference_locked = build_bucket(a, b, tid);
-                auto did_acquire = __atomic_compare_exchange_n(it, &reference_unlocked, reference_locked, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME);
+                auto did_acquire = __atomic_compare_exchange_n(it, &reference_unlocked, reference_locked, false, __ATOMIC_RELEASE,
+                                                               __ATOMIC_CONSUME);
 
                 return {true, did_acquire ? it : nullptr};
             }
@@ -112,7 +113,7 @@ public:
         size_t num_items = 0;
 
         #pragma omp parallel for reduction(+:empty_slots, num_items)
-        for(size_t i=0; i != size; ++i) {
+        for (size_t i = 0; i != size; ++i) {
             auto value = data_begin_[i];
             empty_slots += (value == kEmpty);
             if (value == kEmpty || value == kDeleted)
@@ -128,8 +129,9 @@ public:
 
         *this = std::move(new_instance);
 
-        std::cout << "Load factor " << (100. * num_items / size) << "%. "
-        "Empty slots " << (100. * empty_slots / size) << "%\n";
+        if (0) {
+            std::cout << "Load factor " << (100. * num_items / size) << "%. " << "Empty slots " << (100. * empty_slots / size) << "%\n";
+        }
     }
 
     [[nodiscard]] size_t capacity() const noexcept {
@@ -163,7 +165,7 @@ private:
                     // it, we delete our temporary ticket, otherwise we make it permanent
 
                     auto search_it = it;
-                    while(true) {
+                    while (true) {
                         ++search_it;
                         if (TLX_UNLIKELY(search_it == data_end_)) {
                             search_it = data_begin_;
@@ -209,7 +211,8 @@ private:
         assert(b < (node_type(1) << kBitsPerNode));
 
 
-        return static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode) | (static_cast<value_type>(tid) << kBitsPerPayload);
+        return static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode) |
+               (static_cast<value_type>(tid) << kBitsPerPayload);
     }
 
     [[nodiscard]] constexpr value_type get_payload(value_type tmp) const {

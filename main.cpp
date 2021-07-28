@@ -52,14 +52,15 @@ int main() {
     edge_t target_m = n * 5.44;
 
     for (int repeat = 0; repeat < 1; ++repeat) {
-        //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
+        run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
 
-        run_benchmark<AlgorithmParallelNaive>("par-naive", n, target_m, gen);
+        auto max_threads = omp_get_max_threads();
+        for(unsigned threads=1; threads <= max_threads; ++threads) {
+            omp_set_num_threads(threads);
+            run_benchmark<AlgorithmParallelNaive>("par-naive-" + std::to_string(threads), n, target_m, gen);
+        }
 
-        //run_benchmark<AlgorithmSet<tsl::robin_set<
-        //    edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
-        //>>>("robin-s", n, target_m, gen);
-        //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+        run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
 
         std::cout << "\n";

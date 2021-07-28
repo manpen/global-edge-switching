@@ -13,7 +13,7 @@ struct AlgorithmParallelNaive : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaive(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 0.5)
+    AlgorithmParallelNaive(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.5)
         : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), chunk_factor_(chunk_factor) {
         edge_list_.reserve(graph.numberOfEdges());
 
@@ -41,8 +41,8 @@ public:
         size_t successful_switches = 0;
         size_t sync_rejects = 0;
 
-        while(num_switches) {
-            incpwl::ScopedTimer timer("chunk");
+        while (true) {
+            incpwl::ScopedTimer timer;
             auto chunk_size = std::min<size_t>(num_switches, edge_list_.capacity() * chunk_factor_);
 
             #pragma omp parallel reduction(+:successful_switches,sync_rejects)
@@ -113,11 +113,20 @@ public:
 
             num_switches -= chunk_size;
 
-            if (num_switches)
-                edge_set_.rebuild();
+            if (logging_)
+                timer.report("chunk");
+
+            if (!num_switches)
+                break;
+
+            edge_set_.rebuild();
         }
 
-        std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches << ",num_sync_rejects=" << sync_rejects << "\n";
+
+        if (logging_) {
+            std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
+                      << ",num_sync_rejects=" << sync_rejects << "\n";
+        }
 
         return successful_switches;
     }
@@ -131,10 +140,16 @@ public:
         return result;
     }
 
+    void enable_logging(bool val = true) {
+        logging_ = val;
+    }
+
 private:
     std::vector<edge_t> edge_list_;
     edge_set_type edge_set_;
     double chunk_factor_;
+    bool logging_{false};
+
 };
 
 }
