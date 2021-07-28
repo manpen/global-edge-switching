@@ -26,6 +26,7 @@ public:
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+        const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
         std::vector<std::mt19937_64> gens;
@@ -115,6 +116,8 @@ public:
             if (num_switches)
                 edge_set_.rebuild();
         }
+
+        std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches << ",num_sync_rejects=" << sync_rejects << "\n";
 
         return successful_switches;
     }

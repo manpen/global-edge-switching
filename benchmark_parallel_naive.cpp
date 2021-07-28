@@ -25,10 +25,10 @@ int main() {
     std::mt19937_64 gen{0};
 
     for (int repeat = 0; repeat < 5; ++repeat) {
-        for (unsigned n_exp : {16, 20, 22}) {
-            for (unsigned avg_deg : {5, 10, 20}) {
-                for (double load_factor : {2.0, 4.0}) {
-                    for (double chunk_factor : {0.1, 0.5, 0.8, 1.0, 1.2, 1.4, 1.6}) {
+        for (unsigned n_exp : {16, 20, 22, 24}) {
+            for (unsigned avg_deg : {10}) {
+                for (double load_factor : {2.0}) {
+                    for (double chunk_factor : {0.1, 0.5, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.5, 3.0}) {
                         Aux::Random::setSeed(0, true);
 
                         node_t n = 1llu << n_exp;
@@ -50,7 +50,7 @@ int main() {
                             const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
                             std::cout << "Switches successful: " << (100. * sucessful_switches / requested_swichtes) << "\n";
                             std::cout << "Runtime " << timer.elapsedSeconds() << "s\n";
-                            std::cout << "Switches per second: " << requested_swichtes / timer.elapsedSeconds() << "M \n";
+                            std::cout << "Switches per second: " << (1e-6 * requested_swichtes / timer.elapsedSeconds()) << "M\n";
                         }
                     }
                 }
