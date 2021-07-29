@@ -62,9 +62,8 @@ int main() {
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-        run_benchmark<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
-        run_benchmark<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
-        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
+        run_benchmark<AlgorithmParallelVectorSet<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
+        run_benchmark<AlgorithmParallelGlobalES<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", n, target_m, gen);
 
         std::cout << "\n";
     }

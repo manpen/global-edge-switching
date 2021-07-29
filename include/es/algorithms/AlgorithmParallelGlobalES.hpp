@@ -1,27 +1,28 @@
 #pragma once
 
-#include <atomic>
 #include <random>
 #include <thread>
 #include <vector>
 
 #include <es/algorithms/AlgorithmBase.hpp>
 
+#include <shuffle/algorithms/FisherYates.hpp>
+#include <shuffle/algorithms/InplaceScatterShuffle.hpp>
+
 namespace es {
 
-template<size_t NumThreads, size_t HashTableSize, typename HashFcn = edge_hash_crc32>
+template<size_t NumThreads, typename Set>
 struct AlgorithmParallelGlobalES : public AlgorithmBase {
 public:
     AlgorithmParallelGlobalES(const NetworKit::Graph &graph)
-    : AlgorithmBase(graph), inserted_(HashTableSize * graph.numberOfEdges()) {
+    : AlgorithmBase(graph), edge_set_(graph.numberOfEdges()) {
         edge_list_.reserve(graph.numberOfEdges());
-
-        for (auto& e : inserted_) e.store(0);
 
         graph.forEdges([&](NetworKit::node u, NetworKit::node v){
             auto edge = to_edge(u, v);
             edge_list_.emplace_back(edge);
-            inserted_[hash_(edge) % inserted_.size()].fetch_add(1);
+            auto res = edge_set_.insert(edge);
+            assert(res);
         });
     }
 
@@ -32,8 +33,11 @@ public:
         size_t successful_switches = 0;
         std::vector<std::mt19937_64> gen_local(NumThreads, std::mt19937_64(gen()));
 
+        omp_set_num_threads(NumThreads);
+
         while (num_rounds--) {
-            std::shuffle(edge_list_.begin(), edge_list_.end(), gen);
+            shuffle::GeneratorProvider gen_prov(gen);
+            shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
 
             std::vector<size_t> successful_local(NumThreads, 0);
             auto perform_switches = [&](size_t thread_id, size_t beg, size_t end) {
@@ -45,11 +49,8 @@ public:
                     const auto index1 = i;
                     const auto index2 = i + 1;
 
-                    const edge_t e1 = edge_list_[index1];
-                    const edge_t e2 = edge_list_[index2];
-
-                    auto[u, v] = to_nodes(e1);
-                    auto[x, y] = to_nodes(e2);
+                    auto [u, v] = to_nodes(edge_list_[index1]);
+                    auto [x, y] = to_nodes(edge_list_[index2]);
 
                     if (fair_coin(gen))
                         std::swap(x, y);
@@ -57,50 +58,23 @@ public:
                     // rewire to u-x, v-y
                     if (u == x || v == y) continue; // prevent self-loops
 
-                    const edge_t e3 = to_edge(u, x);
-                    const edge_t e4 = to_edge(v, y);
+                    const edge_t e1 = to_edge(u, x);
+                    const edge_t e2 = to_edge(v, y);
 
-                    // check if all of e1, e2, e3, e4 are collision free
-                    const size_t e1_insert_id = hash_(e1) % inserted_.size();
-                    const size_t e2_insert_id = hash_(e2) % inserted_.size();
-                    const size_t e3_insert_id = hash_(e3) % inserted_.size();
-                    const size_t e4_insert_id = hash_(e4) % inserted_.size();
-                    size_t expected3 = 0;
-                    if (!inserted_[e3_insert_id].compare_exchange_strong(expected3, 1,
-                                                                         std::memory_order_release,
-                                                                         std::memory_order_relaxed)) {
-                        continue;
-                    }
-                    size_t expected4 = 0;
-                    if (!inserted_[e4_insert_id].compare_exchange_strong(expected4, 1,
-                                                                         std::memory_order_release,
-                                                                         std::memory_order_relaxed)) {
-                        inserted_[e3_insert_id].store(0, std::memory_order_release);
-                        continue;
-                    }
-                    size_t expected1 = 1;
-                    if (!inserted_[e1_insert_id].compare_exchange_strong(expected1, 0,
-                                                                         std::memory_order_release,
-                                                                         std::memory_order_relaxed)) {
-                        inserted_[e3_insert_id].store(0, std::memory_order_release);
-                        inserted_[e4_insert_id].store(0, std::memory_order_release);
-                        continue;
-                    }
-                    size_t expected2 = 1;
-                    if (!inserted_[e2_insert_id].compare_exchange_strong(expected2, 0,
-                                                                         std::memory_order_release,
-                                                                         std::memory_order_relaxed)) {
-                        inserted_[e3_insert_id].store(0, std::memory_order_release);
-                        inserted_[e4_insert_id].store(0, std::memory_order_release);
-                        inserted_[e1_insert_id].store(1, std::memory_order_release);
-                        continue;
+                    if (!edge_set_.insert(e1)) {
+                        continue; // prevent self-loops
                     }
 
-                    edge_list_[index1] = e3;
-                    edge_list_[index2] = e4;
+                    if (!edge_set_.insert(e2)) {
+                        edge_set_.erase(e1);
+                        continue; // prevent self-loops
+                    }
 
-                    edge_list_[index1] = e3;
-                    edge_list_[index2] = e4;
+                    edge_set_.erase(edge_list_[index1]);
+                    edge_set_.erase(edge_list_[index2]);
+
+                    edge_list_[index1] = e1;
+                    edge_list_[index2] = e2;
 
                     ++successful_local[thread_id];
                 }
@@ -132,9 +106,8 @@ public:
     }
 
 private:
-    std::vector<std::atomic<size_t>> inserted_;
     std::vector<edge_t> edge_list_;
-    HashFcn hash_;
+    Set edge_set_;
 };
 
 }
