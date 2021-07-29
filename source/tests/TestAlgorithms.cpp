@@ -69,13 +69,13 @@ int main() {
 
             edge_t target_m = n * d;
 
-            for (int repeat = 0; repeat < 10; ++repeat) {
+            for (int repeat = 0; repeat < 100; ++repeat) {
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
                 run_test<AlgorithmParallelVector<4, 10>>("parallel-vector", n, target_m, gen);
-                run_test<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
-                run_test<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
+                //run_test<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
+                //run_test<AlgorithmParallelGlobalES<4, 10>>("parallel-global-es", n, target_m, gen);
 
                 std::cout << "\n";
             }

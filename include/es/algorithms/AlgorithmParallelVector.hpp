@@ -81,7 +81,9 @@ public:
                 const edge_t e3 = to_edge(u, x);
                 const edge_t e4 = to_edge(v, y);
 
-                // attempt to claim creation of e1 and e2
+                // check if all of e1, e2, e3, e4 are collision free
+                const size_t e1_insert_id = hash_(e1) % inserted_.size();
+                const size_t e2_insert_id = hash_(e2) % inserted_.size();
                 const size_t e3_insert_id = hash_(e3) % inserted_.size();
                 const size_t e4_insert_id = hash_(e4) % inserted_.size();
                 size_t expected3 = 0;
@@ -101,15 +103,34 @@ public:
                     inserted_[e3_insert_id].store(0, std::memory_order_release);
                     continue;
                 }
+                size_t expected1 = 1;
+                if (!inserted_[e1_insert_id].compare_exchange_strong(expected1, 0,
+                                                                     std::memory_order_release,
+                                                                     std::memory_order_relaxed)) {
+                    available_[index1].store(true, std::memory_order_release);
+                    available_[index2].store(true, std::memory_order_release);
+                    inserted_[e3_insert_id].store(0, std::memory_order_release);
+                    inserted_[e4_insert_id].store(0, std::memory_order_release);
+                    continue;
+                }
+                size_t expected2 = 1;
+                if (!inserted_[e2_insert_id].compare_exchange_strong(expected2, 0,
+                                                                     std::memory_order_release,
+                                                                     std::memory_order_relaxed)) {
+                    available_[index1].store(true, std::memory_order_release);
+                    available_[index2].store(true, std::memory_order_release);
+                    inserted_[e3_insert_id].store(0, std::memory_order_release);
+                    inserted_[e4_insert_id].store(0, std::memory_order_release);
+                    inserted_[e1_insert_id].store(1, std::memory_order_release);
+                    continue;
+                }
 
                 edge_list_[index1] = e3;
                 edge_list_[index2] = e4;
 
-                // free the edges
+                // make the new edges available
                 available_[index1].store(true, std::memory_order_release);
                 available_[index2].store(true, std::memory_order_release);
-                inserted_[hash_(e1) % inserted_.size()].fetch_sub(1);
-                inserted_[hash_(e2) % inserted_.size()].fetch_sub(1);
 
                 ++successful_local[thread_id];
             }
