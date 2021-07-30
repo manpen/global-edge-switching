@@ -29,12 +29,17 @@ public:
         assert(!edge_list_.empty());
 
         size_t switches_per_thread = num_switches / NumThreads;
-        size_t successful_switches = 0;
         std::vector<size_t> successful_local(NumThreads, 0);
         std::vector<std::mt19937_64> gen_local(NumThreads, std::mt19937_64(gen()));
         std::uniform_int_distribution<size_t> edge_distr(0, edge_list_.size() - 1);
 
-        auto perform_switches = [&](size_t thread_id, size_t num_local) {
+        omp_set_num_threads(NumThreads);
+
+        #pragma omp parallel num_threads(NumThreads)
+        {
+            const auto thread_id = omp_get_thread_num();
+
+            size_t num_local = switches_per_thread;
 
             std::mt19937_64& gen = gen_local[thread_id];
             shuffle::RandomBits fair_coin;
@@ -100,20 +105,11 @@ public:
                 available_[index1].store(true, std::memory_order_release);
                 available_[index2].store(true, std::memory_order_release);
 
-                ++successful_local[thread_id];
+                successful_local[thread_id]++;
             }
-        };
-
-        std::vector<std::thread> threads;
-        for (size_t t = 0; t < NumThreads; ++t) {
-            threads.emplace_back(perform_switches, t, switches_per_thread);
-        }
-        for (size_t t = 0; t < NumThreads; ++t) {
-            threads[t].join();
-            successful_switches += successful_local[t];
         }
 
-        return successful_switches;
+        return std::accumulate(successful_local.begin(), successful_local.end(), 0);
     }
 
     NetworKit::Graph get_graph() override {
