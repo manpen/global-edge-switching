@@ -32,17 +32,18 @@ template <typename Algo>
 void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool sorted = false) {
     double p = (2.0 * target_m) / n / (n - 1);
     auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
+    edge_t m = graph.numberOfEdges();
 
     Algo es(graph);
 
     {
         incpwl::ScopedTimer timer;
         const auto switches_per_edge = 10;
-        const auto requested_swichtes = switches_per_edge * target_m;
+        const auto requested_swichtes = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
-        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / target_m) << "M \n";
+        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
         std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / target_m) / timer.elapsedSeconds() << "M \n";
+        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "M \n";
     }
 }
 
@@ -62,8 +63,8 @@ int main() {
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-        run_benchmark<AlgorithmParallelVectorSet<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
-        run_benchmark<AlgorithmParallelGlobalES<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", n, target_m, gen);
+        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
+        run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", n, target_m, gen);
 
         std::cout << "\n";
     }

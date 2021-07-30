@@ -29,7 +29,7 @@ public:
     size_t do_switches(std::mt19937_64& gen, size_t num_switches) {
         assert(!edge_list_.empty());
 
-        size_t num_rounds = num_switches / (edge_list_.size() / 2.);
+        size_t num_rounds = 2 * (num_switches / edge_list_.size());
         std::vector<size_t> successful_local(NumThreads, 0);
         std::vector<std::mt19937_64> gen_local(NumThreads, std::mt19937_64(gen()));
 
