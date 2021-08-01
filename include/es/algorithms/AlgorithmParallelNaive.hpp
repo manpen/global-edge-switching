@@ -33,6 +33,7 @@ public:
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+        using ticket_t = edge_set_type::iterator_type;
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
@@ -128,7 +129,6 @@ public:
 
             edge_set_.rebuild();
         }
-
 
         if (logging_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches

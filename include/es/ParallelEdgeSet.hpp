@@ -53,24 +53,24 @@ public:
     // the second entry returns a pointer if the bucket could be locked
     [[nodiscard]] std::pair<bool, iterator_type> acquire(node_type a, node_type b, unsigned tid) noexcept {
         auto reference_unlocked = build_bucket(a, b);
-        auto reference_payload = get_payload(reference_unlocked);
+        auto reference_locked   = build_bucket(a, b, tid);
+        auto reference_payload  = get_payload(reference_unlocked);
 
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
 
         while (true) {
-            auto value = __atomic_load_n(it, __ATOMIC_CONSUME);
+            auto value = reference_unlocked;
+            auto did_acquire = __atomic_compare_exchange_n(it, &value, reference_locked, false, __ATOMIC_RELEASE,
+                                                           __ATOMIC_CONSUME);
+            if (did_acquire)
+                return {true, it};
 
             if (value == kEmpty)
                 return {false, nullptr};
 
             if (get_payload(value) == reference_payload) {
-                // we found the correct bucket; let's try to lock it
-                auto reference_locked = build_bucket(a, b, tid);
-                auto did_acquire = __atomic_compare_exchange_n(it, &reference_unlocked, reference_locked, false, __ATOMIC_RELEASE,
-                                                               __ATOMIC_CONSUME);
-
-                return {true, did_acquire ? it : nullptr};
+                return {true, nullptr};
             }
 
             ++it;
@@ -105,15 +105,11 @@ public:
 
     // rebuilding
     void rebuild() {
-        incpwl::ScopedTimer timer;
-
         auto size = storage_.size() - 1;
         bool fresh_rebuild_instance = !rebuild_instance_;
         if (fresh_rebuild_instance) {
             rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_);
         }
-
-        rebuild_instance_->hash_bias_ += 0x1234; // change hash bias every iteration to smooth out collision prone hash functions
 
         size_t empty_slots = 0;
         size_t num_items = 0;
@@ -121,13 +117,15 @@ public:
         #pragma omp parallel reduction(+:empty_slots, num_items)
         {
             if (!fresh_rebuild_instance) {
-                #pragma omp for
+                // parallel fill(rebuild_instance->data_begin, end, kEmpty);
+                auto data = rebuild_instance_->data_begin_;
+                #pragma omp for schedule(dynamic,100000)
                 for (size_t i = 0; i != size; ++i) {
-                    rebuild_instance_->data_begin_[i] = kEmpty;
+                    data[i] = kEmpty;
                 }
             }
 
-            #pragma omp for
+            #pragma omp for schedule(dynamic,100000)
             for (size_t i = 0; i != size; ++i) {
                 auto value = data_begin_[i];
                 empty_slots += (value == kEmpty);
@@ -136,8 +134,22 @@ public:
 
                 assert(!is_locked(value));
 
-                auto it = rebuild_instance_->insert(value);
-                assert(it != nullptr);
+                auto fast_insert = [] (auto& inst, auto value)
+                {
+                    auto bucket = inst.growth_.bucket_for_hash(inst.hash(inst.get_payload(value)));
+                    auto it = inst.data_begin_ + bucket;
+
+                    while (true) {
+                        auto empty = kEmpty;
+                        if (__atomic_compare_exchange_n(it, &empty, value, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME))
+                            break;
+
+                        ++it;
+                        if (TLX_UNLIKELY(it == inst.data_end_))
+                            it = inst.data_begin_;
+                    }
+                };
+                fast_insert(*rebuild_instance_, value);
 
                 ++num_items;
             }
@@ -149,12 +161,6 @@ public:
         auto ptr_to_org_rebuild_instance = rebuild_instance_.get();
         std::swap(*this, *rebuild_instance_);
         rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
-
-        if (0) {
-            std::cout << "Load factor " << (100. * num_items / size) << "%. " << "Empty slots " << (100. * empty_slots / size) << "%\n";
-        }
-
-        timer.report("rebuild");
     }
 
     [[nodiscard]] size_t capacity() const noexcept {
@@ -174,56 +180,60 @@ private:
 
     std::unique_ptr<ParallelEdgeSet> rebuild_instance_;
 
-    [[nodiscard]] iterator_type insert(value_type reference_locked) noexcept {
+    template <bool EnsureUnique = true>
+    iterator_type insert(value_type reference_locked) noexcept {
         const auto reference_payload = get_payload(reference_locked);
 
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
 
+        value_type value_at_it = kDeleted;
         while (true) {
-            auto value = __atomic_load_n(it, __ATOMIC_CONSUME);
+            if (__atomic_compare_exchange_n(it, &value_at_it, reference_locked, true, __ATOMIC_RELEASE, __ATOMIC_CONSUME)) {
+                // we now have our foot in the door: we have a ticket, but still have to make sure
+                // that the value is not yet stored in the hash set -- so we search on; if we find
+                // it, we delete our temporary ticket, otherwise we make it permanent
 
-            if (value == kEmpty || value == kDeleted) {
-                if (__atomic_compare_exchange_n(it, &value, reference_locked, true, __ATOMIC_RELEASE, __ATOMIC_CONSUME)) {
-                    // we now have our foot in the door: we have a ticket, but still have to make sure
-                    // that the value is not yet stored in the hash set -- so we search on; if we find
-                    // it, we delete our temporary ticket, otherwise we make it permanent
+                if (!EnsureUnique)
+                    return it;
 
-                    auto search_it = it;
-                    while (true) {
-                        ++search_it;
-                        if (TLX_UNLIKELY(search_it == data_end_)) {
-                            search_it = data_begin_;
+                auto search_it = it;
+                while (true) {
+                    ++search_it;
+                    if (TLX_UNLIKELY(search_it == data_end_)) {
+                        search_it = data_begin_;
+                    }
+
+                    auto search_value = __atomic_load_n(search_it, __ATOMIC_CONSUME);
+
+                    if (search_value == kEmpty)
+                        return it; // successful
+
+                    if (get_payload(search_value) == reference_payload) {
+                        // we found a bucket with the same payload
+                        if (TLX_UNLIKELY(search_it == it)) {
+                            // wrapped around, so we have the only ticket
+                            return it;
                         }
 
-                        auto search_value = __atomic_load_n(search_it, __ATOMIC_CONSUME);
-
-                        if (search_value == kEmpty)
-                            return it; // successful
-
-                        if (get_payload(search_value) == reference_payload) {
-                            // we found a bucket with the same payload
-                            if (TLX_UNLIKELY(search_it == it)) {
-                                // wrapped around, so we have the only ticket
-                                return it;
-                            }
-
-                            // value still existed; remove ticket
-                            __atomic_store_n(it, kDeleted, __ATOMIC_RELEASE);
-                            return nullptr;
-                        }
+                        // value still existed; remove ticket
+                        __atomic_store_n(it, kDeleted, __ATOMIC_RELEASE);
+                        return nullptr;
                     }
                 }
-
-                continue; // something went wrong; retry
             }
 
-            if (get_payload(value) == reference_payload)
+            if (value_at_it == kEmpty)
+                continue;
+
+            if (get_payload(value_at_it) == reference_payload)
                 return nullptr;
 
             ++it;
             if (TLX_UNLIKELY(it == data_end_))
                 it = data_begin_;
+
+            value_at_it = kDeleted;
         }
     }
 
@@ -234,7 +244,6 @@ private:
 
         assert(a < (node_type(1) << kBitsPerNode));
         assert(b < (node_type(1) << kBitsPerNode));
-
 
         return static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode) |
                (static_cast<value_type>(tid) << kBitsPerPayload);
@@ -258,11 +267,11 @@ private:
             auto l = _mm_crc32_u64(hash_bias_, static_cast<uint64_t>(value));
             auto m = _mm_crc32_u64(l, static_cast<uint64_t>(value >> 16));
             auto h = _mm_crc32_u64(m, static_cast<uint64_t>(value >> 32));
-            return static_cast<uint64_t>(value) ^ (l + 0x3141 * m + 0x87654321 * h);
+            return static_cast<uint64_t>(value) ^ (l + 0x31411 * m + 0x87654321 * h);
         } else {
             auto l = _mm_crc32_u64(hash_bias_, static_cast<uint64_t>(value));
             auto h = _mm_crc32_u64(l, static_cast<uint64_t>(value >> 32));
-            return value ^ (l + 0x87654321 * h);
+            return value ^ (0x1234567 * l + 0x87654321 * h);
         }
     }
 };
