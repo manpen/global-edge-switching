@@ -43,7 +43,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
         std::cout << label << ": Switches requested: " << requested_switches << "\n";
         std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "\n";
         std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << switches_per_edge / timer.elapsedSeconds() << "M \n";
+        std::cout << label << ": Switches per second: " << (1e-6 * requested_switches / timer.elapsedSeconds()) << "M \n";
     }
 }
 
