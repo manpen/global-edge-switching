@@ -23,5 +23,8 @@ target_link_libraries(libedgeswitch
 add_executable(edge_switching main.cpp)
 target_link_libraries(edge_switching PRIVATE libedgeswitch)
 
+add_executable(benchmark_shuffle benchmark_shuffle.cpp)
+target_link_libraries(benchmark_shuffle PRIVATE libedgeswitch)
+
 enable_testing()
 add_subdirectory(source/tests)
