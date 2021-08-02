@@ -33,26 +33,45 @@ public:
         std::vector<size_t> successful_local(NumThreads, 0);
         std::vector<std::mt19937_64> gen_local(NumThreads, std::mt19937_64(gen()));
 
+        std::vector<std::vector<size_t>> switches;
+        {
+            incpwl::ScopedTimer timer1("shuffle-total");
+            switches.reserve(num_rounds);
+            std::vector<size_t> indices;
+            for (size_t i = 0; i < edge_list_.size(); ++i) indices.emplace_back(i);
+            for (size_t r = 0; r < num_rounds; ++r) {
+                {
+                    incpwl::ScopedTimer timer2("shuffle");
+                    shuffle::GeneratorProvider gen_prov(gen);
+                    shuffle::parallel::iss_shuffle(indices.begin(), indices.end(), gen_prov);
+                }
+                switches.push_back(indices);
+            }
+        }
+
         omp_set_num_threads(NumThreads);
-
         while (num_rounds--) {
-            shuffle::GeneratorProvider gen_prov(gen);
-            shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
+            /*{
+                incpwl::ScopedTimer timer("shuffle");
+                shuffle::GeneratorProvider gen_prov(gen);
+                shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
+            }*/
 
+            incpwl::ScopedTimer timer("switch");
             #pragma omp parallel num_threads(NumThreads)
             {
                 const auto thread_id = omp_get_thread_num();
 
-                size_t edges_per_thread = edge_list_.size() / NumThreads;
+                size_t edges_per_thread = (edge_list_.size() / 2) / NumThreads;
                 size_t beg = thread_id * edges_per_thread;
-                size_t end = thread_id + 1 == NumThreads ? edge_list_.size() : beg + edges_per_thread;
+                size_t end = thread_id + 1 == NumThreads ? edge_list_.size() / 2 : beg + edges_per_thread;
 
                 std::mt19937_64 &gen = gen_local[thread_id];
                 shuffle::RandomBits fair_coin;
 
-                for (size_t i = beg; i + 1 < end; i += 2) {
-                    const auto index1 = i;
-                    const auto index2 = i + 1;
+                for (size_t i = beg; i < end; i++) {
+                    const auto index1 = switches[num_rounds][i];
+                    const auto index2 = switches[num_rounds][i + edge_list_.size() / 2];
 
                     auto [u, v] = to_nodes(edge_list_[index1]);
                     auto [x, y] = to_nodes(edge_list_[index2]);
