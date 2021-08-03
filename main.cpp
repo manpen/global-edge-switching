@@ -25,6 +25,8 @@
 #include <es/AdjacencyVector.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
+#include <networkit/generators/HavelHakimiGenerator.hpp>
+#include <networkit/generators/PowerlawDegreeSequence.hpp>
 
 using namespace es;
 
@@ -47,30 +49,55 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
     }
 }
 
+template <typename Algo>
+void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen) {
+    edge_t m = graph.numberOfEdges();
+
+    Algo es(graph);
+
+    {
+        incpwl::ScopedTimer timer;
+        const auto switches_per_edge = 100;
+        const auto requested_swichtes = switches_per_edge * m;
+        const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
+        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
+        std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
+        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "M \n";
+    }
+}
+
 int main() {
     std::mt19937_64 gen{0};
 
     node_t n = 1<<20;
-    edge_t target_m = n * 1.44;
+    edge_t target_m = n * 5.44;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
+        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.0);
+        std::vector<NetworKit::count> ds;
+        bool realizable;
+        do {
+            ds_gen.run();
+            ds = ds_gen.getDegreeSequence(n);
+            realizable = NetworKit::HavelHakimiGenerator(ds).isRealizable();
+        } while (!realizable);
+        auto graph = NetworKit::HavelHakimiGenerator(ds).generate();
+
         //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
         //run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
-
-
         /*run_benchmark<AlgorithmSet<tsl::robin_set<
             edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
-        run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
-        run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", n, target_m, gen);
+
+        run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
 
         std::cout << "\n";
     }
 
     //run_benchmark<EdgeSwitch_VectorSet<tsl::hopscotch_set<edge_t, edge_hash>>>("hps", n, target_m, gen);
-
     //run_benchmark<EdgeSwitch_VectorSet<std::unordered_set<edge_t, edge_hash>>>("std::uset", n, target_m, gen);
 
     return 0;
