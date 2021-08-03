@@ -22,6 +22,7 @@
 #include <es/algorithms/AlgorithmParallelGlobalES.hpp>
 #include <es/algorithms/AlgorithmParallelVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -94,6 +95,7 @@ int main() {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelNaive>("parallel-manuel", graph, gen);
+        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global", graph, gen);
         run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
         run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
 
