@@ -21,6 +21,7 @@
 #include <es/algorithms/AlgorithmParallelVector.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalES.hpp>
 #include <es/algorithms/AlgorithmParallelVectorSet.hpp>
+#include <es/algorithms/AlgorithmParallelNaive.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -57,7 +58,7 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
 
     {
         incpwl::ScopedTimer timer;
-        const auto switches_per_edge = 100;
+        const auto switches_per_edge = 10;
         const auto requested_swichtes = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
         std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
@@ -70,7 +71,7 @@ int main() {
     std::mt19937_64 gen{0};
 
     node_t n = 1<<20;
-    edge_t target_m = n * 5.44;
+    edge_t target_m = n * 1.44;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
         NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.0);
@@ -91,6 +92,8 @@ int main() {
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
 
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelNaive>("parallel-manuel", graph, gen);
         run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
         run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
 
