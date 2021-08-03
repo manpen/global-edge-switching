@@ -41,7 +41,7 @@ enum class ScatterAlgorithm {
 };
 
 template <unsigned DefaultNumSegements = 128,                      //
-          size_t DefaultCutOff = 1llu << 18,                       //
+          size_t DefaultCutOff = 1llu << 10,                       //
           ScatterAlgorithm ScatterAlgo = ScatterAlgorithm::Direct, //
           bool SwapRangeAVX = false>
 struct Config {
@@ -409,14 +409,14 @@ struct Impl {
         block_vector segments;
         const auto requested_num_segments = num_segments;
 
-#pragma omp parallel num_threads(gen_prov.num_threads())
+        #pragma omp parallel num_threads(gen_prov.num_threads())
         {
             const auto num_threads = static_cast<unsigned>(omp_get_max_threads());
             const auto thread_id = static_cast<unsigned>(omp_get_thread_num());
             num_segments = std::max(std::min(num_segments, 3 * num_threads), num_segments);
             auto &gen = gen_prov();
 
-#pragma omp single
+            #pragma omp single
             {
                 blocks_of_thread.resize(num_threads);
                 segments.resize(num_segments);
@@ -439,9 +439,9 @@ struct Impl {
             block_vector blocks;
             blocks.reserve(num_threads);
 
-#pragma omp barrier
+            #pragma omp barrier
 
-#pragma omp for schedule(dynamic, 1)
+            #pragma omp for schedule(dynamic, 1)
             for (unsigned seg_id = 0; seg_id < num_segments; ++seg_id) {
                 blocks.clear();
                 for (auto &b : blocks_of_thread)
@@ -450,7 +450,7 @@ struct Impl {
                 segments[seg_id] = compact_segment(blocks.begin(), blocks.end());
             }
 
-#pragma omp single
+            #pragma omp single
             {
                 redistribute_stashes(segments.begin(), segments.end());
                 auto buffer_end = pull_stashes_to_front(segments.begin(), segments.end());
@@ -463,7 +463,7 @@ struct Impl {
             auto end_seg = num_segments / 2;
             for(; end_seg < num_segments && segments[end_seg].begin < begin + n/2; ++end_seg);
 
-#pragma omp for nowait
+            #pragma omp for nowait
             for (unsigned seg_id = 0; seg_id < end_seg; ++seg_id)
                 sequential_shuffle(segments[seg_id].begin, segments[seg_id].end, gen,
                                    requested_num_segments, cutoff);
