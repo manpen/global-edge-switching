@@ -77,9 +77,6 @@ public:
                     auto [u, v] = to_nodes(edge_list_[edge_id1]);
                     auto [x, y] = to_nodes(edge_list_[edge_id2]);
 
-                    auto ticket1 = edge_set_.acquire(u, v, tid).second;
-                    auto ticket2 = edge_set_.acquire(x, y, tid).second;
-
                     if (fair_coin(gen))
                         std::swap(x, y);
 
@@ -99,17 +96,26 @@ public:
                         edge_set_.release(ticket4);
 
                         // and erase the old ones
-                        edge_set_.erase_and_release(ticket1);
-                        edge_set_.erase_and_release(ticket2);
+                        while (true) {
+                            auto ticket1 = edge_set_.acquire(u, v, tid).second;
+                            if (ticket1) {
+                                edge_set_.erase_and_release(ticket1);
+                                break;
+                            }
+                        }
+                        while (true) {
+                            auto ticket2 = edge_set_.acquire(x, y, tid).second;
+                            if (ticket2) {
+                                edge_set_.erase_and_release(ticket2);
+                                break;
+                            }
+                        }
 
                         ++successful_switches;
                     } else {
                         // reject: erase tickets and release unmodified edges
                         if (ticket3)
                             edge_set_.erase_and_release(ticket3);
-
-                        edge_set_.release(ticket1);
-                        edge_set_.release(ticket2);
                     }
                 }
 
