@@ -411,7 +411,7 @@ struct Impl {
 
         #pragma omp parallel num_threads(gen_prov.num_threads())
         {
-            const auto num_threads = static_cast<unsigned>(omp_get_max_threads());
+            const auto num_threads = static_cast<unsigned>(omp_get_num_threads());
             const auto thread_id = static_cast<unsigned>(omp_get_thread_num());
             num_segments = std::max(std::min(num_segments, 3 * num_threads), num_segments);
             auto &gen = gen_prov();
