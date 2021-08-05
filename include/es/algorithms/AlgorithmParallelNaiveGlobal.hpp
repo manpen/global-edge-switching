@@ -6,6 +6,7 @@
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <es/ParallelEdgeSet.hpp>
 #include <es/RandomBits.hpp>
+#include <es/ScopedTimer.hpp>
 
 namespace es {
 
@@ -13,8 +14,8 @@ struct AlgorithmParallelNaiveGlobal : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaiveGlobal(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0)
-        : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), chunk_factor_(chunk_factor) {
+    AlgorithmParallelNaiveGlobal(const NetworKit::Graph &graph, double load_factor = 2.0)
+        : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor) {
         edge_list_.reserve(graph.numberOfEdges());
 
         graph.forEdges([&](NetworKit::node u, NetworKit::node v){
@@ -66,57 +67,42 @@ public:
                 shuffle::RandomBits fair_coin;
                 auto gen = gens[tid];
 
-                size_t edges_per_thread = (edge_list_.size() / 2) / omp_get_max_threads();
+                size_t edges_per_thread = edge_list_.size() / omp_get_num_threads();
                 size_t beg = tid * edges_per_thread;
-                size_t end = tid + 1 == omp_get_max_threads() ? edge_list_.size() / 2 : beg + edges_per_thread;
+                size_t end = tid + 1 == omp_get_num_threads() ? edge_list_.size() : beg + edges_per_thread;
 
-                for (size_t i = beg; i < end; i++) {
-                    const size_t edge_id1 = i;
-                    const size_t edge_id2 = i + edge_list_.size() / 2;
-
-                    auto [u, v] = to_nodes(edge_list_[edge_id1]);
-                    auto [x, y] = to_nodes(edge_list_[edge_id2]);
+                for (size_t i = beg; i + 1 < end; i += 2) {
+                    auto [u, v] = to_nodes(edge_list_[i]);
+                    auto [x, y] = to_nodes(edge_list_[i + 1]);
 
                     if (fair_coin(gen))
                         std::swap(x, y);
 
-                    edge_set_type::iterator_type ticket3{nullptr};
-                    edge_set_type::iterator_type ticket4{nullptr};
+                    if (u == x || v == y)
+                        continue; // prevent self-loops
 
-                    if (u != x && v != y) { // otherwise we have a self-loop and can stop early
-                        ticket3 = edge_set_.insert(u, x, tid);
-                        ticket4 = ticket3 ? edge_set_.insert(v, y, tid) : nullptr;
+                    auto ticket3 = edge_set_.insert(u, x, tid);
+                    if (!ticket3)
+                        continue; // prevent multi-edges
+
+                    auto ticket4 = edge_set_.insert(v, y, tid);
+                    if (!ticket4) {
+                        edge_set_.erase_and_release(ticket3);
+                        continue; // prevent multi-edges
                     }
 
-                    if (ticket4) {
-                        // successful: commit new edges
-                        __atomic_store_n(&edge_list_[edge_id1], to_edge(u, x), __ATOMIC_RELEASE);
-                        __atomic_store_n(&edge_list_[edge_id2], to_edge(v, y), __ATOMIC_RELEASE);
-                        edge_set_.release(ticket3);
-                        edge_set_.release(ticket4);
+                    // successful: commit new edges
+                    edge_list_[i] = to_edge(u, x);
+                    edge_list_[i + 1] = to_edge(v, y);
 
-                        // and erase the old ones
-                        while (true) {
-                            auto ticket1 = edge_set_.acquire(u, v, tid).second;
-                            if (ticket1) {
-                                edge_set_.erase_and_release(ticket1);
-                                break;
-                            }
-                        }
-                        while (true) {
-                            auto ticket2 = edge_set_.acquire(x, y, tid).second;
-                            if (ticket2) {
-                                edge_set_.erase_and_release(ticket2);
-                                break;
-                            }
-                        }
+                    edge_set_.release(ticket3);
+                    edge_set_.release(ticket4);
 
-                        ++successful_switches;
-                    } else {
-                        // reject: erase tickets and release unmodified edges
-                        if (ticket3)
-                            edge_set_.erase_and_release(ticket3);
-                    }
+                    // and erase the old ones
+                    edge_set_.erase(u, v);
+                    edge_set_.erase(x, y);
+
+                    ++successful_switches;
                 }
 
                 gens[tid] = gen;
@@ -125,7 +111,7 @@ public:
             num_rounds--;
 
             if (logging_)
-                timer.report("chunk");
+                timer.report("round");
 
             if (!num_rounds)
                 break;
@@ -157,7 +143,6 @@ public:
 private:
     std::vector<edge_t> edge_list_;
     edge_set_type edge_set_;
-    double chunk_factor_;
     bool logging_{false};
 
 };
