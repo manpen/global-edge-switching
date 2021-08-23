@@ -188,7 +188,7 @@ public:
             if (!num_rounds)
                 break;
 
-            edge_dependencies.cleanup_last_round();
+            edge_dependencies.next_round();
         }
 
         return successful_switches;

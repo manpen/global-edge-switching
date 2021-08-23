@@ -10,19 +10,7 @@ namespace es {
 template<typename HashFcn>
 struct EdgeDependencies {
 public:
-    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 2 * num_edges) {}
-
-    void cleanup_last_round(size_t num_threads = omp_get_max_threads()) {
-        #pragma omp parallel for num_threads(num_threads)
-        for (size_t i = 0; i < dependencies_.size(); ++i) {
-            auto& dep = dependencies_[i];
-            dep.edge = kEmpty_;
-            dep.resolved = true;
-            dep.erasing_switch = 0;
-            dep.inserting_switches.clear();
-            dep.unlocked = true;
-        }
-    }
+    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 2 * num_edges), round_(0) {}
 
     void announce_erase(edge_t edge, size_t sid) {
         auto [iter, _] = insert_or_find(edge);
@@ -89,20 +77,27 @@ public:
         return {earliest, resolved};
     }
 
+    void next_round() {
+        round_++;
+    }
+
 private:
-    const static size_t kEmpty_ = std::numeric_limits<edge_t>::max();
+    const static edge_t kEmpty_ = std::numeric_limits<edge_t>::max();
     const static size_t kNone_ = std::numeric_limits<size_t>::max();
+    const static int kLocked_ = std::numeric_limits<int>::max();
 
     struct EdgeDependency {
-        std::atomic<edge_t> edge = kEmpty_;
+        edge_t edge = kEmpty_;
         bool resolved = true;
         size_t erasing_switch = 0;
         std::vector<std::pair<size_t, bool>> inserting_switches;
         std::atomic<bool> unlocked = true;
+        std::atomic<int> round = -1;
     };
 
     std::vector<EdgeDependency> dependencies_;
     HashFcn hash_func_;
+    int round_;
 
     using iterator_t = typename std::vector<EdgeDependency>::iterator;
     using const_iterator_t = typename std::vector<EdgeDependency>::const_iterator;
@@ -111,14 +106,23 @@ private:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            edge_t edge_at_iter = iter->edge.load(std::memory_order_acquire);
-            if (edge_at_iter == kEmpty_) {
-                iter->edge.compare_exchange_weak(edge_at_iter, edge,
-                                                 std::memory_order_release,
-                                                 std::memory_order_consume);
-                if (edge_at_iter == kEmpty_) return {iter, true};
+            int round_at_iter = iter->round.load(std::memory_order_acquire);
+            if (round_at_iter < round_) {
+                iter->round.compare_exchange_weak(round_at_iter, kLocked_,
+                                                  std::memory_order_release,
+                                                  std::memory_order_consume);
+                if (round_at_iter < round_) {
+                    iter->edge = edge;
+                    iter->resolved = true;
+                    iter->erasing_switch = 0;
+                    iter->inserting_switches.clear();
+                    iter->unlocked = true;
+                    iter->round.store(round_, std::memory_order_release);
+                    return {iter, true};
+                }
             }
-            if (edge_at_iter == edge)  return {iter, false};
+            if (iter->round.load(std::memory_order_acquire) == kLocked_) continue;
+            if (iter->edge == edge)  return {iter, false};
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
         }
@@ -128,8 +132,7 @@ private:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            edge_t edge_at_iter = iter->edge.load(std::memory_order_acquire);
-            if (edge_at_iter == edge)  return iter;
+            if (iter->edge == edge)  return iter;
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
         }
@@ -139,8 +142,7 @@ private:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            edge_t edge_at_iter = iter->edge.load(std::memory_order_acquire);
-            if (edge_at_iter == edge) return iter;
+            if (iter->edge == edge) return iter;
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
         }
