@@ -51,37 +51,39 @@ public:
                     size_t e1 = edge_list_[i];
                     size_t e2 = edge_list_[i + 1];
 
-                    auto [u, v] = to_nodes(e1);
-                    auto [x, y] = to_nodes(e2);
+                    edge_dependencies.announce_erase(e1, switch_id);
+                    edge_dependencies.announce_erase(e2, switch_id);
+
+                    auto[u, v] = to_nodes(e1);
+                    auto[x, y] = to_nodes(e2);
 
                     if (e1 < e2) std::swap(x, y);
 
                     size_t e3 = to_edge(u, x);
                     size_t e4 = to_edge(v, y);
 
-                    if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) {
-                        // switch is definitely illegal, announce that edges wont be erased
-                        edge_dependencies.announce_erase(e1, edge_dependencies.kNone_);
-                        edge_dependencies.announce_erase(e2, edge_dependencies.kNone_);
+                    if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // switch is definitely illegal, announce that edges wont be erased
+                        edge_dependencies.announce_erase_failed(e1);
+                        edge_dependencies.announce_erase_failed(e2);
                         continue;
                     }
 
-                    edge_dependencies.announce_erase(e1, switch_id);
-                    edge_dependencies.announce_erase(e2, switch_id);
                     edge_dependencies.announce_insert(e3, switch_id);
                     edge_dependencies.announce_insert(e4, switch_id);
                 }
 
                 if (edges_per_thread % 2 == 1) {
                     edge_t e = edge_list_[end - 1];
-                    edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
+                    edge_dependencies.announce_erase(e, 0);
+                    edge_dependencies.announce_erase_failed(e);
                 }
 
                 if (tid + 1 == t) {
                     size_t r = m % t;
                     for (size_t i = 0; i < r; ++i) {
                         edge_t e = edge_list_[end + i];
-                        edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
+                        edge_dependencies.announce_erase(e, 0);
+                        edge_dependencies.announce_erase_failed(e);
                     }
                 }
             }
@@ -115,7 +117,7 @@ public:
 
                     bool e3_insert_collision = false;
                     while (!e3_insert_collision) {
-                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(e3);
+                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(to_edge(u, x));
                         if (inserting_switch >= switch_id) break;
                         if (resolved) e3_insert_collision = true;
                     }
@@ -126,14 +128,9 @@ public:
                         edge_dependencies.announce_insert_failed(e4, switch_id);
                         continue;
                     }
-                    size_t e3_pos = edge_dependencies.find_existing2(e3);
                     bool e3_erase_collision = false;
                     while (!e3_erase_collision) {
-                        size_t e3_pos2 = edge_dependencies.find_existing2(e3);
-                        if (e3_pos != e3_pos2) {
-                            std::cout << "WTF" << std::endl;
-                        }
-                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase2(e3_pos);
+                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(to_edge(u, x));
                         if (erasing_switch > switch_id) e3_erase_collision = true;
                         if (resolved) break;
                     }
@@ -147,7 +144,7 @@ public:
 
                     bool e4_insert_collision = false;
                     while (!e4_insert_collision) {
-                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(e4);
+                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(to_edge(v, y));
                         if (inserting_switch >= switch_id) break;
                         if (resolved) e4_insert_collision = true;
                     }
@@ -160,7 +157,7 @@ public:
                     }
                     bool e4_erase_collision = false;
                     while (!e4_erase_collision) {
-                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(e4);
+                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(to_edge(v, y));
                         if (erasing_switch > switch_id) e4_erase_collision = true;
                         if (resolved) break;
                     }
@@ -173,8 +170,8 @@ public:
                     }
 
                     // successful: commit new edges
-                    edge_list_[i] = e3;
-                    edge_list_[i + 1] = e4;
+                    edge_list_[i] = to_edge(u, x);
+                    edge_list_[i + 1] = to_edge(v, y);
                     edge_dependencies.announce_insert_succeeded(e3, switch_id);
                     edge_dependencies.announce_insert_succeeded(e4, switch_id);
 
