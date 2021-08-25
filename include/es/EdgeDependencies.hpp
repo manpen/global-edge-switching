@@ -54,33 +54,27 @@ public:
         iter->switch_id = kNone_;
     }
 
-    std::pair<size_t, bool> lookup_erase(edge_t edge) const {
-        size_t bucket = hash_func_(edge) % dependencies_.size();
-        auto iter = dependencies_.begin() + bucket;
-        while (true) {
-            if (iter->round < round_) return {0, true};
-            if (iter->edge == edge && iter->type == ERASE) break;
-            iter++;
-            if (iter == dependencies_.end()) iter = dependencies_.begin();
-        }
-        return {iter->switch_id, iter->resolved};
-    }
-
-    std::pair<size_t, bool> lookup_insert(edge_t edge) const {
-        size_t earliest = kNone_;
-        bool resolved = false;
+    std::tuple<size_t, bool, size_t, bool> lookup_dependencies(edge_t edge) const {
+        size_t erasing_switch = 0;
+        bool erase_resolved = true;
+        size_t inserting_switch = kNone_;
+        bool insert_resolved = false;
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
             if (iter->round < round_) break;
-            if (iter->edge == edge && iter->type == INSERT && iter->switch_id < earliest) {
-                earliest = iter->switch_id;
-                resolved = iter->resolved;
+            if (iter->edge == edge && iter->type == ERASE) {
+                erasing_switch = iter->switch_id;
+                erase_resolved = iter->resolved;
+            }
+            if (iter->edge == edge && iter->type == INSERT && iter->switch_id < inserting_switch) {
+                inserting_switch = iter->switch_id;
+                insert_resolved = iter->resolved;
             }
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
         }
-        return {earliest, resolved};
+        return {erasing_switch, erase_resolved, inserting_switch, insert_resolved};
     }
 
 private:
