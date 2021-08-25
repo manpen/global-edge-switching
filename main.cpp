@@ -44,11 +44,11 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
     {
         incpwl::ScopedTimer timer;
         const auto switches_per_edge = 100;
-        const auto requested_swichtes = switches_per_edge * m;
-        const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
-        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
+        const auto requested_switches = switches_per_edge * m;
+        const auto sucessful_switches = es.do_switches(gen, requested_switches);
+        std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
         std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "M \n";
+        std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
     }
 }
 
@@ -61,11 +61,11 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
     {
         incpwl::ScopedTimer timer;
         const auto switches_per_edge = 10;
-        const auto requested_swichtes = switches_per_edge * m;
-        const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
-        std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
+        const auto requested_switches = switches_per_edge * m;
+        const auto sucessful_switches = es.do_switches(gen, requested_switches);
+        std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
         std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "M \n";
+        std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
     }
 }
 
