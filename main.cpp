@@ -23,6 +23,7 @@
 #include <es/algorithms/AlgorithmParallelVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobal.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -42,7 +43,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 
     {
         incpwl::ScopedTimer timer;
-        const auto switches_per_edge = 10;
+        const auto switches_per_edge = 100;
         const auto requested_swichtes = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
         std::cout << label << ": Switches successful: " << (1. * sucessful_switches / m) << "M \n";
@@ -74,8 +75,8 @@ int main() {
     node_t n = 1<<20;
     edge_t target_m = n * 1.44;
 
-    for (int repeat = 0; repeat < 5; ++repeat) {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.0);
+    for (int repeat = 0; repeat < 1; ++repeat) {
+        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.5);
         std::vector<NetworKit::count> ds;
         bool realizable;
         do {
@@ -94,10 +95,13 @@ int main() {
 
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
         omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelNaive>("parallel-manuel", graph, gen);
-        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global", graph, gen);
-        run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
-        run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
+        run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
+        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
+        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        //run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
+        //run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
 
         std::cout << "\n";
     }
