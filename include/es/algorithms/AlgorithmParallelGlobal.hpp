@@ -51,9 +51,6 @@ public:
                     size_t e1 = edge_list_[i];
                     size_t e2 = edge_list_[i + 1];
 
-                    edge_dependencies.announce_erase(e1, switch_id);
-                    edge_dependencies.announce_erase(e2, switch_id);
-
                     auto[u, v] = to_nodes(e1);
                     auto[x, y] = to_nodes(e2);
 
@@ -63,27 +60,27 @@ public:
                     size_t e4 = to_edge(v, y);
 
                     if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // switch is definitely illegal, announce that edges wont be erased
-                        edge_dependencies.announce_erase_failed(e1);
-                        edge_dependencies.announce_erase_failed(e2);
+                        edge_dependencies.announce_erase(e1, edge_dependencies.kNone_);
+                        edge_dependencies.announce_erase(e2, edge_dependencies.kNone_);
                         continue;
                     }
 
+                    edge_dependencies.announce_erase(e1, switch_id);
+                    edge_dependencies.announce_erase(e2, switch_id);
                     edge_dependencies.announce_insert(e3, switch_id);
                     edge_dependencies.announce_insert(e4, switch_id);
                 }
 
                 if (edges_per_thread % 2 == 1) {
                     edge_t e = edge_list_[end - 1];
-                    edge_dependencies.announce_erase(e, 0);
-                    edge_dependencies.announce_erase_failed(e);
+                    edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
                 }
 
                 if (tid + 1 == t) {
                     size_t r = m % t;
                     for (size_t i = 0; i < r; ++i) {
                         edge_t e = edge_list_[end + i];
-                        edge_dependencies.announce_erase(e, 0);
-                        edge_dependencies.announce_erase_failed(e);
+                        edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
                     }
                 }
             }
@@ -117,26 +114,26 @@ public:
 
                     bool e3_insert_collision = false;
                     while (!e3_insert_collision) {
-                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(to_edge(u, x));
+                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(e3);
                         if (inserting_switch >= switch_id) break;
                         if (resolved) e3_insert_collision = true;
                     }
                     if (e3_insert_collision) {
-                        edge_dependencies.announce_erase_failed(e1);
-                        edge_dependencies.announce_erase_failed(e2);
+                        edge_dependencies.announce_erase_failed(e1, switch_id);
+                        edge_dependencies.announce_erase_failed(e2, switch_id);
                         edge_dependencies.announce_insert_failed(e3, switch_id);
                         edge_dependencies.announce_insert_failed(e4, switch_id);
                         continue;
                     }
                     bool e3_erase_collision = false;
                     while (!e3_erase_collision) {
-                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(to_edge(u, x));
+                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(e3);
                         if (erasing_switch > switch_id) e3_erase_collision = true;
                         if (resolved) break;
                     }
                     if (e3_erase_collision) {
-                        edge_dependencies.announce_erase_failed(e1);
-                        edge_dependencies.announce_erase_failed(e2);
+                        edge_dependencies.announce_erase_failed(e1, switch_id);
+                        edge_dependencies.announce_erase_failed(e2, switch_id);
                         edge_dependencies.announce_insert_failed(e3, switch_id);
                         edge_dependencies.announce_insert_failed(e4, switch_id);
                         continue;
@@ -144,40 +141,40 @@ public:
 
                     bool e4_insert_collision = false;
                     while (!e4_insert_collision) {
-                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(to_edge(v, y));
+                        auto [inserting_switch, resolved] = edge_dependencies.lookup_insert(e4);
                         if (inserting_switch >= switch_id) break;
                         if (resolved) e4_insert_collision = true;
                     }
                     if (e4_insert_collision) {
-                        edge_dependencies.announce_erase_failed(e1);
-                        edge_dependencies.announce_erase_failed(e2);
+                        edge_dependencies.announce_erase_failed(e1, switch_id);
+                        edge_dependencies.announce_erase_failed(e2, switch_id);
                         edge_dependencies.announce_insert_failed(e3, switch_id);
                         edge_dependencies.announce_insert_failed(e4, switch_id);
                         continue;
                     }
                     bool e4_erase_collision = false;
                     while (!e4_erase_collision) {
-                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(to_edge(v, y));
+                        auto [erasing_switch, resolved] = edge_dependencies.lookup_erase(e4);
                         if (erasing_switch > switch_id) e4_erase_collision = true;
                         if (resolved) break;
                     }
                     if (e4_erase_collision) {
-                        edge_dependencies.announce_erase_failed(e1);
-                        edge_dependencies.announce_erase_failed(e2);
+                        edge_dependencies.announce_erase_failed(e1, switch_id);
+                        edge_dependencies.announce_erase_failed(e2, switch_id);
                         edge_dependencies.announce_insert_failed(e3, switch_id);
                         edge_dependencies.announce_insert_failed(e4, switch_id);
                         continue;
                     }
 
                     // successful: commit new edges
-                    edge_list_[i] = to_edge(u, x);
-                    edge_list_[i + 1] = to_edge(v, y);
+                    edge_list_[i] = e3;
+                    edge_list_[i + 1] = e4;
                     edge_dependencies.announce_insert_succeeded(e3, switch_id);
                     edge_dependencies.announce_insert_succeeded(e4, switch_id);
 
                     // and erase the old ones
-                    edge_dependencies.announce_erase_succeeded(e1);
-                    edge_dependencies.announce_erase_succeeded(e2);
+                    edge_dependencies.announce_erase_succeeded(e1, switch_id);
+                    edge_dependencies.announce_erase_succeeded(e2, switch_id);
 
                     ++successful_switches;
                 }
@@ -229,9 +226,6 @@ public:
                 size_t e1 = edge_list_[i];
                 size_t e2 = edge_list_[i + 1];
 
-                edge_dependencies.announce_erase(e1, switch_id);
-                edge_dependencies.announce_erase(e2, switch_id);
-
                 auto[u, v] = to_nodes(e1);
                 auto[x, y] = to_nodes(e2);
 
@@ -241,27 +235,27 @@ public:
                 size_t e4 = to_edge(v, y);
 
                 if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // switch is definitely illegal, announce that edges wont be erased
-                    edge_dependencies.announce_erase_failed(e1);
-                    edge_dependencies.announce_erase_failed(e2);
+                    edge_dependencies.announce_erase(e1, edge_dependencies.kNone_);
+                    edge_dependencies.announce_erase(e2, edge_dependencies.kNone_);
                     continue;
                 }
 
+                edge_dependencies.announce_erase(e1, switch_id);
+                edge_dependencies.announce_erase(e2, switch_id);
                 edge_dependencies.announce_insert(e3, switch_id);
                 edge_dependencies.announce_insert(e4, switch_id);
             }
 
             if (edges_per_thread % 2 == 1) {
                 edge_t e = edge_list_[end - 1];
-                edge_dependencies.announce_erase(e, 0);
-                edge_dependencies.announce_erase_failed(e);
+                edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
             }
 
             if (tid + 1 == t) {
                 size_t r = m % t;
                 for (size_t i = 0; i < r; ++i) {
                     edge_t e = edge_list_[end + i];
-                    edge_dependencies.announce_erase(e, 0);
-                    edge_dependencies.announce_erase_failed(e);
+                    edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
                 }
             }
         }
@@ -309,8 +303,8 @@ public:
                         std::lock_guard lock(output_mutex);
                         std::cout << " IC" << switch_id;
                     }
-                    edge_dependencies.announce_erase_failed(e1);
-                    edge_dependencies.announce_erase_failed(e2);
+                    edge_dependencies.announce_erase_failed(e1, switch_id);
+                    edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
                     edge_dependencies.announce_insert_failed(e4, switch_id);
                     continue;
@@ -326,8 +320,8 @@ public:
                         std::lock_guard lock(output_mutex);
                         std::cout << " EC" << switch_id;
                     }
-                    edge_dependencies.announce_erase_failed(e1);
-                    edge_dependencies.announce_erase_failed(e2);
+                    edge_dependencies.announce_erase_failed(e1, switch_id);
+                    edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
                     edge_dependencies.announce_insert_failed(e4, switch_id);
                     continue;
@@ -344,8 +338,8 @@ public:
                         std::lock_guard lock(output_mutex);
                         std::cout << " IC" << switch_id;
                     }
-                    edge_dependencies.announce_erase_failed(e1);
-                    edge_dependencies.announce_erase_failed(e2);
+                    edge_dependencies.announce_erase_failed(e1, switch_id);
+                    edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
                     edge_dependencies.announce_insert_failed(e4, switch_id);
                     continue;
@@ -361,8 +355,8 @@ public:
                         std::lock_guard lock(output_mutex);
                         std::cout << " EC" << switch_id;
                     }
-                    edge_dependencies.announce_erase_failed(e1);
-                    edge_dependencies.announce_erase_failed(e2);
+                    edge_dependencies.announce_erase_failed(e1, switch_id);
+                    edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
                     edge_dependencies.announce_insert_failed(e4, switch_id);
                     continue;
@@ -375,8 +369,8 @@ public:
                 edge_dependencies.announce_insert_succeeded(e4, switch_id);
 
                 // and erase the old ones
-                edge_dependencies.announce_erase_succeeded(e1);
-                edge_dependencies.announce_erase_succeeded(e2);
+                edge_dependencies.announce_erase_succeeded(e1, switch_id);
+                edge_dependencies.announce_erase_succeeded(e2, switch_id);
 
                 std::lock_guard lock(output_mutex);
                 std::cout << " S" << switch_id;
