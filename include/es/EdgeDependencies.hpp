@@ -14,26 +14,10 @@ public:
     const static edge_t kEmpty_ = std::numeric_limits<edge_t>::max();
     const static int kLocked_ = std::numeric_limits<int>::max();
 
-    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 4 * num_edges) {}
+    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 4 * num_edges), round_(0) {}
 
     void next_round() {
-        #pragma omp parallel
-        {
-            size_t t = omp_get_num_threads();
-            size_t tid = omp_get_thread_num();
-
-            size_t dependencies_size = dependencies_.size();
-            size_t chunk_size = dependencies_size / t;
-            size_t beg = chunk_size * tid;
-            size_t end = tid + 1 == t ? dependencies_size : beg + chunk_size;
-
-            for (size_t i = beg; i < end; ++i) {
-                dependencies_[i].edge = kEmpty_;
-                dependencies_[i].type = NONE;
-                dependencies_[i].switch_id = 0;
-                dependencies_[i].resolved = true;
-            }
-        }
+        round_++;
     }
 
     void announce_erase(edge_t edge, size_t sid) {
@@ -74,7 +58,7 @@ public:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            if (iter->edge == kEmpty_) break;
+            if (iter->round < round_) return {0, true};
             if (iter->edge == edge && iter->type == ERASE) break;
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
@@ -88,7 +72,7 @@ public:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            if (iter->edge == kEmpty_) break;
+            if (iter->round < round_) break;
             if (iter->edge == edge && iter->type == INSERT && iter->switch_id < earliest) {
                 earliest = iter->switch_id;
                 resolved = iter->resolved;
@@ -107,7 +91,8 @@ private:
     };
 
     struct EdgeDependency {
-        std::atomic<edge_t> edge = kEmpty_;
+        std::atomic<int> round = -1;
+        edge_t edge = kEmpty_;
         size_t switch_id = 0;
         bool resolved = true;
         DependencyType type = NONE;
@@ -115,6 +100,7 @@ private:
 
     std::vector<EdgeDependency> dependencies_;
     HashFcn hash_func_;
+    int round_;
 
     using iterator_t = typename std::vector<EdgeDependency>::iterator;
     using const_iterator_t = typename std::vector<EdgeDependency>::const_iterator;
@@ -123,12 +109,15 @@ private:
         size_t bucket = hash_func_(edge) % dependencies_.size();
         auto iter = dependencies_.begin() + bucket;
         while (true) {
-            edge_t edge_at_iter = iter->edge.load(std::memory_order_acquire);
-            if (edge_at_iter == kEmpty_) {
-                iter->edge.compare_exchange_strong(edge_at_iter, edge,
-                                                   std::memory_order_release,
-                                                   std::memory_order_consume);
-                if (edge_at_iter == kEmpty_) return iter;
+            int round_at_iter = iter->round.load(std::memory_order_acquire);
+            if (round_at_iter < round_) {
+                iter->round.compare_exchange_strong(round_at_iter, round_,
+                                                    std::memory_order_release,
+                                                    std::memory_order_consume);
+                if (round_at_iter < round_) {
+                    iter->edge = edge;
+                    return iter;
+                }
             }
             iter++;
             if (iter == dependencies_.end()) iter = dependencies_.begin();
