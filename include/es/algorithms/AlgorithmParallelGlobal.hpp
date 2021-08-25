@@ -13,7 +13,7 @@ namespace es {
 
 struct AlgorithmParallelGlobal : public AlgorithmBase {
 public:
-    AlgorithmParallelGlobal(const NetworKit::Graph &graph, double load_factor = 2.0)
+    AlgorithmParallelGlobal(const NetworKit::Graph& graph, double load_factor = 4.0)
         : AlgorithmBase(graph),
         edge_dependencies(graph.numberOfEdges(), load_factor) {
         edge_list_.reserve(graph.numberOfEdges());
@@ -24,7 +24,7 @@ public:
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+    size_t do_switches(std::mt19937_64& gen, size_t num_switches) {
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
@@ -35,7 +35,7 @@ public:
             shuffle::GeneratorProvider gen_prov(gen);
             shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
 
-            #pragma omp parallel
+            #pragma omp parallel reduction(+:successful_switches)
             {
                 size_t t = omp_get_num_threads();
                 size_t tid = omp_get_thread_num();
@@ -51,17 +51,17 @@ public:
                     size_t e1 = edge_list_[i];
                     size_t e2 = edge_list_[i + 1];
 
-                    auto[u, v] = to_nodes(e1);
-                    auto[x, y] = to_nodes(e2);
+                    auto [u, v] = to_nodes(e1);
+                    auto [x, y] = to_nodes(e2);
 
                     if (e1 < e2) std::swap(x, y);
 
                     size_t e3 = to_edge(u, x);
                     size_t e4 = to_edge(v, y);
 
-                    if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // switch is definitely illegal, announce that edges wont be erased
-                        edge_dependencies.announce_erase(e1, edge_dependencies.kNone_);
-                        edge_dependencies.announce_erase(e2, edge_dependencies.kNone_);
+                    if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // prevent self-loops
+                        edge_dependencies.announce_erase(e1, EdgeDependencies<es::edge_hash_crc32>::kNone_);
+                        edge_dependencies.announce_erase(e2, EdgeDependencies<es::edge_hash_crc32>::kNone_);
                         continue;
                     }
 
@@ -73,27 +73,18 @@ public:
 
                 if (edges_per_thread % 2 == 1) {
                     edge_t e = edge_list_[end - 1];
-                    edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
+                    edge_dependencies.announce_erase(e, EdgeDependencies<es::edge_hash_crc32>::kNone_);
                 }
 
                 if (tid + 1 == t) {
                     size_t r = m % t;
                     for (size_t i = 0; i < r; ++i) {
                         edge_t e = edge_list_[end + i];
-                        edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
+                        edge_dependencies.announce_erase(e, EdgeDependencies<es::edge_hash_crc32>::kNone_);
                     }
                 }
-            }
 
-            #pragma omp parallel reduction(+:successful_switches)
-            {
-                size_t t = omp_get_num_threads();
-                size_t tid = omp_get_thread_num();
-
-                size_t m = edge_list_.size();
-                size_t edges_per_thread = m / t;
-                size_t beg = tid * edges_per_thread;
-                size_t end = beg + edges_per_thread;
+                #pragma omp barrier
 
                 for (size_t i = beg; i + 1 < end; i += 2) {
                     size_t switch_id = ((i % edges_per_thread) / 2) * t + tid;
@@ -214,8 +205,8 @@ public:
                 size_t e1 = edge_list_[i];
                 size_t e2 = edge_list_[i + 1];
 
-                auto[u, v] = to_nodes(e1);
-                auto[x, y] = to_nodes(e2);
+                auto [u, v] = to_nodes(e1);
+                auto [x, y] = to_nodes(e2);
 
                 if (e1 < e2) std::swap(x, y);
 
@@ -246,17 +237,8 @@ public:
                     edge_dependencies.announce_erase(e, edge_dependencies.kNone_);
                 }
             }
-        }
 
-        #pragma omp parallel num_threads(num_threads)
-        {
-            size_t t = omp_get_num_threads();
-            size_t tid = omp_get_thread_num();
-
-            size_t m = edge_list_.size();
-            size_t edges_per_thread = m / t;
-            size_t beg = tid * edges_per_thread;
-            size_t end = beg + edges_per_thread;
+            #pragma omp barrier
 
             for (size_t i = beg; i + 1 < end; i += 2) {
                 size_t switch_id = ((i % edges_per_thread) / 2) * t + tid;
@@ -323,9 +305,9 @@ public:
                     continue;
                 }
 
-                edge_list_[i] = to_edge(u, x);
-                edge_list_[i + 1] = to_edge(v, y);
-                
+                edge_list_[i] = e3;
+                edge_list_[i + 1] = e4;
+
                 edge_dependencies.announce_erase_succeeded(e1, switch_id);
                 edge_dependencies.announce_erase_succeeded(e2, switch_id);
                 edge_dependencies.announce_insert_succeeded(e3, switch_id);
@@ -340,8 +322,8 @@ public:
 
     NetworKit::Graph get_graph() override {
         NetworKit::Graph result(input_graph_.numberOfNodes());
-        for(auto e : edge_list_) {
-            auto[u, v] = to_nodes(e);
+        for (auto e : edge_list_) {
+            auto [u, v] = to_nodes(e);
             result.addEdge(u, v);
         }
         return result;

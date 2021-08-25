@@ -14,7 +14,7 @@ public:
     const static edge_t kEmpty_ = std::numeric_limits<edge_t>::max();
     const static int kLocked_ = std::numeric_limits<int>::max();
 
-    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 4 * num_edges), round_(0) {}
+    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 2 * num_edges), round_(0) {}
 
     void next_round() {
         round_++;
@@ -54,7 +54,7 @@ public:
         iter->switch_id = kNone_;
     }
 
-    std::tuple<size_t, bool, size_t, bool> lookup_dependencies(edge_t edge) const {
+    [[nodiscard]] std::tuple<size_t, bool, size_t, bool> lookup_dependencies(edge_t edge) const {
         size_t erasing_switch = 0;
         bool erase_resolved = true;
         size_t inserting_switch = kNone_;
@@ -97,7 +97,6 @@ private:
     int round_;
 
     using iterator_t = typename std::vector<EdgeDependency>::iterator;
-    using const_iterator_t = typename std::vector<EdgeDependency>::const_iterator;
 
     iterator_t insert(edge_t edge) {
         size_t bucket = hash_func_(edge) % dependencies_.size();
