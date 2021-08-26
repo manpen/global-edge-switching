@@ -44,6 +44,14 @@ public:
     }
 
     size_t do_round(bool logging = false) {
+        const size_t num_switches = edge_list_.size() / 2;
+
+#ifdef NDEBUG
+        constexpr size_t kBatchSize = 1024;
+#else
+        constexpr size_t kBatchSize = 2;
+#endif
+
         size_t successful_switches = 0;
 
         if (edge_list_.size() % 2) {
@@ -54,21 +62,10 @@ public:
 
         #pragma omp parallel reduction(+:successful_switches)
         {
-            const auto t = static_cast<size_t>(omp_get_num_threads());
-            const auto tid = static_cast<size_t>(omp_get_thread_num());
-
-            const size_t num_switches = edge_list_.size() / 2;
-            const size_t beg = (num_switches * tid) / t;
-            const size_t end = (num_switches * (tid + 1)) / t;
-
-            auto edgeid_to_switchid = [&] (size_t edge_id) {
-                return (edge_id - beg) * t + tid;
-            };
-
-            for (size_t edge_id = beg; edge_id < end; ++edge_id) {
-                const auto switch_id = edgeid_to_switchid(edge_id);
-                const auto e1 = edge_list_[2*edge_id];
-                const auto e2 = edge_list_[2*edge_id+1];
+            #pragma omp for schedule(dynamic, kBatchSize)
+            for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                 const auto e1 = edge_list_[2*switch_id];
+                 const auto e2 = edge_list_[2*switch_id+1];
 
                 auto [u, v] = to_nodes(e1);
                 auto [x, y] = to_nodes(e2);
@@ -90,12 +87,10 @@ public:
                 edge_dependencies.announce_insert(e4, switch_id);
             }
 
-            #pragma omp barrier
-
-            for (size_t edge_id = beg; edge_id < end; ++edge_id) {
-                const auto switch_id = edgeid_to_switchid(edge_id);
-                const auto e1 = edge_list_[2*edge_id];
-                const auto e2 = edge_list_[2*edge_id+1];
+            #pragma omp for schedule(dynamic, kBatchSize)
+            for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                const auto e1 = edge_list_[2*switch_id];
+                const auto e2 = edge_list_[2*switch_id+1];
 
                 if (logging) {
                     #pragma omp critical
@@ -143,8 +138,8 @@ public:
                     continue;
                 }
 
-                edge_list_[2*edge_id] = e3;
-                edge_list_[2*edge_id+1] = e4;
+                edge_list_[2*switch_id] = e3;
+                edge_list_[2*switch_id+1] = e4;
 
                 edge_dependencies.announce_erase_succeeded(e1, switch_id);
                 edge_dependencies.announce_erase_succeeded(e2, switch_id);
@@ -169,18 +164,12 @@ public:
         assert(!edge_list_.empty());
         assert(!rho.empty());
 
-        std::vector<edge_t> edge_list_permuted(rho.size());
-        size_t edges_per_thread = rho.size() / num_threads;
-        size_t num_edges = edges_per_thread * num_threads;
-        for (size_t i = 0; i + 1 < num_edges; i += 2) {
-            size_t switch_id = i / 2;
-            size_t thread_id = switch_id % num_threads;
-            size_t local_switch_id = switch_id / num_threads;
-            size_t offset = edges_per_thread * thread_id + 2 * local_switch_id;
-            edge_list_permuted[offset] = edge_list_[rho[i]];
-            edge_list_permuted[offset + 1] = edge_list_[rho[i + 1]];
+        std::vector<edge_t> edge_list_permuted;
+        edge_list_permuted.reserve(rho.size());
+        for (auto r : rho) {
+            edge_list_permuted.push_back(edge_list_[r]);
         }
-        edge_list_ = edge_list_permuted;
+        edge_list_ = std::move(edge_list_permuted);
 
         do_round(true);
     }
