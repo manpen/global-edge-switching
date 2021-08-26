@@ -12,6 +12,8 @@
 namespace es {
 
 struct AlgorithmParallelGlobal : public AlgorithmBase {
+    using EdgeDependenciesStore = EdgeDependencies<edge_hash_crc32>;
+
 public:
     AlgorithmParallelGlobal(const NetworKit::Graph& graph, double load_factor = 4.0)
         : AlgorithmBase(graph),
@@ -31,17 +33,10 @@ public:
         size_t num_rounds = 2 * (num_switches / edge_list_.size());
         size_t successful_switches = 0;
 
-        while (true) {
-            shuffle::GeneratorProvider gen_prov(gen);
+        shuffle::GeneratorProvider gen_prov(gen);
+        for(size_t round=0; round < num_rounds; ++round) {
             shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
-
             successful_switches += do_round();
-
-            num_rounds--;
-
-            if (!num_rounds)
-                break;
-
             edge_dependencies.next_round();
         }
 
@@ -49,36 +44,40 @@ public:
     }
 
     size_t do_round(bool logging = false) {
-        std::mutex log_output_mutex;
+        const size_t num_switches = edge_list_.size() / 2;
+
+#ifdef NDEBUG
+        constexpr size_t kBatchSize = 1024;
+#else
+        constexpr size_t kBatchSize = 2;
+#endif
+
         size_t successful_switches = 0;
+
+        if (edge_list_.size() % 2) {
+            // in case we've an uneven number of edges, the last one wont be switched;
+            // we still need to announce that it exists
+            edge_dependencies.announce_erase(edge_list_.back(), EdgeDependenciesStore::kNone_);
+        }
 
         #pragma omp parallel reduction(+:successful_switches)
         {
-            size_t t = omp_get_num_threads();
-            size_t tid = omp_get_thread_num();
-
-            size_t m = edge_list_.size();
-            size_t edges_per_thread = m / t;
-            size_t beg = tid * edges_per_thread;
-            size_t end = beg + edges_per_thread;
-
-            for (size_t i = beg; i + 1 < end; i += 2) {
-                size_t switch_id = ((i % edges_per_thread) / 2) * t + tid;
-
-                size_t e1 = edge_list_[i];
-                size_t e2 = edge_list_[i + 1];
+            #pragma omp for schedule(dynamic, kBatchSize)
+            for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                 const auto e1 = edge_list_[2*switch_id];
+                 const auto e2 = edge_list_[2*switch_id+1];
 
                 auto [u, v] = to_nodes(e1);
                 auto [x, y] = to_nodes(e2);
 
-                if (e1 < e2) std::swap(x, y);
+                swap_if(e1 < e2, x, y);
 
-                size_t e3 = to_edge(u, x);
-                size_t e4 = to_edge(v, y);
+                const auto e3 = to_edge(u, x);
+                const auto e4 = to_edge(v, y);
 
                 if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // prevent self-loops
-                    edge_dependencies.announce_erase(e1, EdgeDependencies<es::edge_hash_crc32>::kNone_);
-                    edge_dependencies.announce_erase(e2, EdgeDependencies<es::edge_hash_crc32>::kNone_);
+                    edge_dependencies.announce_erase(e1, EdgeDependenciesStore::kNone_);
+                    edge_dependencies.announce_erase(e2, EdgeDependenciesStore::kNone_);
                     continue;
                 }
 
@@ -88,58 +87,50 @@ public:
                 edge_dependencies.announce_insert(e4, switch_id);
             }
 
-            if (edges_per_thread % 2 == 1) {
-                edge_t e = edge_list_[end - 1];
-                edge_dependencies.announce_erase(e, EdgeDependencies<es::edge_hash_crc32>::kNone_);
-            }
-
-            if (tid + 1 == t) {
-                size_t r = m % t;
-                for (size_t i = 0; i < r; ++i) {
-                    edge_t e = edge_list_[end + i];
-                    edge_dependencies.announce_erase(e, EdgeDependencies<es::edge_hash_crc32>::kNone_);
-                }
-            }
-
-            #pragma omp barrier
-
-            for (size_t i = beg; i + 1 < end; i += 2) {
-                size_t switch_id = ((i % edges_per_thread) / 2) * t + tid;
+            #pragma omp for schedule(dynamic, kBatchSize)
+            for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                const auto e1 = edge_list_[2*switch_id];
+                const auto e2 = edge_list_[2*switch_id+1];
 
                 if (logging) {
-                    std::lock_guard log_output_lock(log_output_mutex);
+                    #pragma omp critical
                     std::cout << "A" << switch_id << " ";
                 }
-
-                size_t e1 = edge_list_[i];
-                size_t e2 = edge_list_[i + 1];
 
                 auto [u, v] = to_nodes(e1);
                 auto [x, y] = to_nodes(e2);
 
-                if (e1 < e2) std::swap(x, y);
+                swap_if(e1 < e2, x, y);
 
-                size_t e3 = to_edge(u, x);
-                size_t e4 = to_edge(v, y);
+                const auto e3 = to_edge(u, x);
+                const auto e4 = to_edge(v, y);
 
                 if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) // prevent self-loops
                     continue;
 
-                bool e3_erase_collision = true;
-                bool e3_insert_collision = true;
-                while (e3_erase_collision || e3_insert_collision) {
-                    auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] = edge_dependencies
-                            .lookup_dependencies(e3);
-                    if (erasing_switch > switch_id) break;
-                    if (erase_resolved) {
-                        e3_erase_collision = false;
-                        if (inserting_switch >= switch_id) {
-                            e3_insert_collision = false;
+                auto wait_for_dependency = [&] (auto eid) {
+                    bool erase_collision = true;
+                    bool insert_collision = true;
+                    do {
+                        auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] = edge_dependencies
+                            .lookup_dependencies(eid);
+                        if (erasing_switch > switch_id) break;
+                        if (erase_resolved) {
+                            erase_collision = false;
+                            if (inserting_switch >= switch_id) {
+                                insert_collision = false;
+                            }
+                            if (insert_resolved) break;
                         }
-                        if (insert_resolved) break;
-                    }
-                }
-                if (e3_erase_collision || e3_insert_collision) {
+                    } while(erase_collision || insert_collision);
+
+                    return erase_collision || insert_collision;
+                };
+
+                auto e3_collision = wait_for_dependency(e3);
+                auto collision = e3_collision || wait_for_dependency(e4);
+
+                if (collision) {
                     edge_dependencies.announce_erase_failed(e1, switch_id);
                     edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
@@ -147,30 +138,8 @@ public:
                     continue;
                 }
 
-                bool e4_erase_collision = true;
-                bool e4_insert_collision = true;
-                while (e4_erase_collision || e4_insert_collision) {
-                    auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] = edge_dependencies
-                            .lookup_dependencies(e4);
-                    if (erasing_switch > switch_id) break;
-                    if (erase_resolved) {
-                        e4_erase_collision = false;
-                        if (inserting_switch >= switch_id) {
-                            e4_insert_collision = false;
-                        }
-                        if (insert_resolved) break;
-                    }
-                }
-                if (e4_erase_collision || e4_insert_collision) {
-                    edge_dependencies.announce_erase_failed(e1, switch_id);
-                    edge_dependencies.announce_erase_failed(e2, switch_id);
-                    edge_dependencies.announce_insert_failed(e3, switch_id);
-                    edge_dependencies.announce_insert_failed(e4, switch_id);
-                    continue;
-                }
-
-                edge_list_[i] = e3;
-                edge_list_[i + 1] = e4;
+                edge_list_[2*switch_id] = e3;
+                edge_list_[2*switch_id+1] = e4;
 
                 edge_dependencies.announce_erase_succeeded(e1, switch_id);
                 edge_dependencies.announce_erase_succeeded(e2, switch_id);
@@ -178,7 +147,7 @@ public:
                 edge_dependencies.announce_insert_succeeded(e4, switch_id);
 
                 if (logging) {
-                    std::lock_guard log_output_lock(log_output_mutex);
+                    #pragma omp critical
                     std::cout << "S" << switch_id << " ";
                 }
 
@@ -195,23 +164,26 @@ public:
         assert(!edge_list_.empty());
         assert(!rho.empty());
 
-        std::vector<edge_t> edge_list_permuted(rho.size());
-        size_t edges_per_thread = rho.size() / num_threads;
-        size_t num_edges = edges_per_thread * num_threads;
-        for (size_t i = 0; i + 1 < num_edges; i += 2) {
-            size_t switch_id = i / 2;
-            size_t thread_id = switch_id % num_threads;
-            size_t local_switch_id = switch_id / num_threads;
-            size_t offset = edges_per_thread * thread_id + 2 * local_switch_id;
-            edge_list_permuted[offset] = edge_list_[rho[i]];
-            edge_list_permuted[offset + 1] = edge_list_[rho[i + 1]];
+        std::vector<edge_t> edge_list_permuted;
+        edge_list_permuted.reserve(rho.size());
+        for (auto r : rho) {
+            edge_list_permuted.push_back(edge_list_[r]);
         }
-        edge_list_ = edge_list_permuted;
+        edge_list_ = std::move(edge_list_permuted);
 
         do_round(true);
     }
 
     NetworKit::Graph get_graph() override {
+        #ifndef NDEBUG
+        {
+            auto sorted = edge_list_;
+            std::sort(sorted.begin(), sorted.end());
+            auto copy = sorted;
+            assert(std::unique(copy.begin(), copy.end()) == copy.end());
+        }
+        #endif
+
         NetworKit::Graph result(input_graph_.numberOfNodes());
         for (auto e : edge_list_) {
             auto [u, v] = to_nodes(e);
@@ -221,7 +193,7 @@ public:
     }
 
 private:
-    EdgeDependencies<edge_hash_crc32> edge_dependencies;
+    EdgeDependenciesStore edge_dependencies;
     std::vector<edge_t> edge_list_;
 };
 

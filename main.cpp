@@ -81,7 +81,7 @@ int main() {
     node_t n = 1<<20;
     edge_t target_m = n * 1.44;
 
-    for (int repeat = 0; repeat < 1; ++repeat) {
+    for (int repeat = 0; repeat < 5; ++repeat) {
         NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.5);
         std::vector<NetworKit::count> ds;
         bool realizable;
