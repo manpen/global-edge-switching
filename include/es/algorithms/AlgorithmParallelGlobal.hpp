@@ -127,9 +127,8 @@ public:
                     return erase_collision || insert_collision;
                 };
 
-                bool e3_collision = wait_for_dependency(e3);
-                bool e4_collision = wait_for_dependency(e4);
-                if (e3_collision || e4_collision) {
+                bool collision = wait_for_dependency(e3) || wait_for_dependency(e4);
+                if (collision) {
                     edge_dependencies.announce_erase_failed(e1, switch_id);
                     edge_dependencies.announce_erase_failed(e2, switch_id);
                     edge_dependencies.announce_insert_failed(e3, switch_id);
