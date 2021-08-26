@@ -34,7 +34,7 @@
 using namespace es;
 
 template <typename Algo>
-void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool sorted = false) {
+void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool detailed = false) {
     double p = (2.0 * target_m) / n / (n - 1);
     auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
     edge_t m = graph.numberOfEdges();
@@ -46,14 +46,17 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
         const auto switches_per_edge = 100;
         const auto requested_switches = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
-        std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-        std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
+        if (detailed) {
+            std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
+            std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
+            std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
+        }
+        std::cout << label << ": Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
     }
 }
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen) {
+void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = false) {
     edge_t m = graph.numberOfEdges();
 
     Algo es(graph);
@@ -63,9 +66,12 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
-        std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-        std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-        std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
+        if (detailed) {
+            std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
+            std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
+            std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
+        }
+        std::cout << label << ": Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
     }
 }
 
