@@ -89,9 +89,9 @@ private:
     };
 
     struct EdgeDependency {
-        std::atomic<int> round = -1;
         edge_t edge = kEmpty_;
         size_t switch_id = 0;
+        std::atomic<int> round = -1;
         bool resolved = true;
         DependencyType type = NONE;
     };
