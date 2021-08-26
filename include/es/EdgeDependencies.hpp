@@ -5,6 +5,8 @@
 #include <mutex>
 #include <vector>
 
+#include <tlx/math.hpp>
+
 namespace es {
 
 template<typename HashFcn>
@@ -14,7 +16,10 @@ public:
     const static edge_t kEmpty_ = std::numeric_limits<edge_t>::max();
     const static int kLocked_ = std::numeric_limits<int>::max();
 
-    EdgeDependencies(size_t num_edges, double load_factor) : dependencies_(load_factor * 2 * num_edges), round_(0) {}
+    EdgeDependencies(size_t num_edges, double load_factor)
+        : dependencies_(tlx::round_up_to_power_of_two(static_cast<size_t>(load_factor * 2 * num_edges + 1)))
+        , mod_mask_(dependencies_.size() - 1)
+        , round_(0) {}
 
     void next_round() {
         round_++;
@@ -59,9 +64,9 @@ public:
         bool erase_resolved = true;
         size_t inserting_switch = kNone_;
         bool insert_resolved = false;
-        size_t bucket = hash_func_(edge) % dependencies_.size();
-        auto iter = dependencies_.begin() + bucket;
+        size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
+            auto iter = dependencies_.begin() + bucket;
             if (iter->round < round_) break;
             if (iter->edge == edge && iter->type == ERASE) {
                 erasing_switch = iter->switch_id;
@@ -71,8 +76,7 @@ public:
                 inserting_switch = iter->switch_id;
                 insert_resolved = iter->resolved;
             }
-            iter++;
-            if (iter == dependencies_.end()) iter = dependencies_.begin();
+            bucket = (bucket + 1) & mod_mask_;
         }
         return {erasing_switch, erase_resolved, inserting_switch, insert_resolved};
     }
@@ -85,9 +89,9 @@ private:
     };
 
     struct EdgeDependency {
-        std::atomic<int> round = -1;
         edge_t edge = kEmpty_;
         size_t switch_id = 0;
+        std::atomic<int> round = -1;
         bool resolved = true;
         DependencyType type = NONE;
     };
@@ -95,13 +99,14 @@ private:
     std::vector<EdgeDependency> dependencies_;
     HashFcn hash_func_;
     int round_;
+    size_t mod_mask_;
 
     using iterator_t = typename std::vector<EdgeDependency>::iterator;
 
     iterator_t insert(edge_t edge) {
-        size_t bucket = hash_func_(edge) % dependencies_.size();
-        auto iter = dependencies_.begin() + bucket;
+        size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
+            auto iter = dependencies_.begin() + bucket;
             int round_at_iter = iter->round.load(std::memory_order_acquire);
             if (round_at_iter < round_) {
                 iter->round.compare_exchange_strong(round_at_iter, round_,
@@ -112,28 +117,25 @@ private:
                     return iter;
                 }
             }
-            iter++;
-            if (iter == dependencies_.end()) iter = dependencies_.begin();
+            bucket = (bucket + 1) & mod_mask_;
         }
     }
 
     iterator_t find_erase(edge_t edge, size_t sid) {
-        size_t bucket = hash_func_(edge) % dependencies_.size();
-        auto iter = dependencies_.begin() + bucket;
+        size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
+            auto iter = dependencies_.begin() + bucket;
             if (iter->edge == edge && iter->type == ERASE && iter->switch_id == sid) return iter;
-            iter++;
-            if (iter == dependencies_.end()) iter = dependencies_.begin();
+            bucket = (bucket + 1) & mod_mask_;
         }
     }
 
     iterator_t find_insert(edge_t edge, size_t sid) {
-        size_t bucket = hash_func_(edge) % dependencies_.size();
-        auto iter = dependencies_.begin() + bucket;
+        size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
+            auto iter = dependencies_.begin() + bucket;
             if (iter->edge == edge && iter->type == INSERT && iter->switch_id == sid) return iter;
-            iter++;
-            if (iter == dependencies_.end()) iter = dependencies_.begin();
+            bucket = (bucket + 1) & mod_mask_;
         }
     }
 };
