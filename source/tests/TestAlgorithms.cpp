@@ -1,21 +1,16 @@
 #include <iostream>
-
 #include <random>
 #include <unordered_set>
-
 
 #include <tsl/hopscotch_set.h>
 #include <tsl/robin_set.h>
 
 #include <es/Graph.hpp>
-#include <es/ThreadsafeSetLockedList.hpp>
-
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
+#include <es/algorithms/AlgorithmParallelNaive.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
-#include <es/algorithms/AlgorithmParallelVector.hpp>
-#include <es/algorithms/AlgorithmParallelVectorSet.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalES.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 
@@ -71,11 +66,10 @@ int main() {
 
             for (int repeat = 0; repeat < 100; ++repeat) {
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
-                //run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+                run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-                //run_test<AlgorithmParallelVector<4, 10, edge_hash_crc32>>("parallel-vector", n, target_m, gen);
-                run_test<AlgorithmParallelVectorSet<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", n, target_m, gen);
-                run_test<AlgorithmParallelGlobalES<6, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", n, target_m, gen);
+                run_test<AlgorithmParallelNaive>("parallel-naive", n, target_m, gen);
+                run_test<AlgorithmParallelNaiveGlobal>("parallel-naive-global", n, target_m, gen);
 
                 std::cout << "\n";
             }
