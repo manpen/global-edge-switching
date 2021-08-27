@@ -11,11 +11,11 @@
 
 namespace es {
 
-struct AlgorithmParallelGlobal : public AlgorithmBase {
+struct AlgorithmParallelGlobalNoWait : public AlgorithmBase {
     using EdgeDependenciesStore = EdgeDependencies<edge_hash_crc32>;
 
 public:
-    AlgorithmParallelGlobal(const NetworKit::Graph& graph, double load_factor = 4.0)
+    AlgorithmParallelGlobalNoWait(const NetworKit::Graph& graph, double load_factor = 4.0)
         : AlgorithmBase(graph),
         edge_dependencies(graph.numberOfEdges(), load_factor) {
         edge_list_.reserve(graph.numberOfEdges());
@@ -61,7 +61,7 @@ public:
             edge_dependencies.announce_erase(edge_list_.back(), kNoSwitch);
         }
 
-        #pragma omp parallel reduction(+:successful_switches)
+        #pragma omp parallel
         {
             #pragma omp for schedule(dynamic, kBatchSize)
             for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
@@ -87,71 +87,90 @@ public:
                 edge_dependencies.announce_insert(e3, switch_id);
                 edge_dependencies.announce_insert(e4, switch_id);
             }
-
-            #pragma omp for schedule(dynamic, kBatchSize)
-            for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
-                const edge_t e1 = edge_list_[2 * switch_id];
-                const edge_t e2 = edge_list_[2 * switch_id + 1];
-
-                if (logging) {
-                    #pragma omp critical
-                    std::cout << "A" << switch_id << " ";
-                }
-
-                auto [u, v] = to_nodes(e1);
-                auto [x, y] = to_nodes(e2);
-
-                swap_if(e1 < e2, x, y);
-
-                const edge_t e3 = to_edge(u, x);
-                const edge_t e4 = to_edge(v, y);
-
-                if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) // prevent self-loops
-                    continue;
-
-                auto wait_for_dependency = [&] (auto eid) {
-                    bool erase_collision = true;
-                    bool insert_collision = true;
-                    do {
-                        auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] = edge_dependencies
-                            .lookup_dependencies(eid);
-                        if (erasing_switch > switch_id) break;
-                        if (erase_resolved) {
-                            erase_collision = false;
-                            if (inserting_switch >= switch_id) {
-                                insert_collision = false;
-                            }
-                            if (insert_resolved) break;
-                        }
-                    } while (erase_collision || insert_collision);
-                    return erase_collision || insert_collision;
-                };
-
-                bool collision = wait_for_dependency(e3) || wait_for_dependency(e4);
-                if (collision) {
-                    edge_dependencies.announce_erase_failed(e1, switch_id);
-                    edge_dependencies.announce_erase_failed(e2, switch_id);
-                    edge_dependencies.announce_insert_failed(e3, switch_id);
-                    edge_dependencies.announce_insert_failed(e4, switch_id);
-                    continue;
-                }
-
-                edge_list_[2 * switch_id] = e3;
-                edge_list_[2 * switch_id + 1] = e4;
-
-                edge_dependencies.announce_erase_succeeded(e1, switch_id);
-                edge_dependencies.announce_erase_succeeded(e2, switch_id);
-                edge_dependencies.announce_insert_succeeded(e3, switch_id);
-                edge_dependencies.announce_insert_succeeded(e4, switch_id);
-
-                if (logging) {
-                    #pragma omp critical
-                    std::cout << "S" << switch_id << " ";
-                }
-
-                ++successful_switches;
-            }
         }
+
+        std::vector<bool> switch_done(num_switches, false);
+        std::atomic<bool> all_done;
+
+        do {
+            all_done = true;
+
+            #pragma omp parallel reduction(+:successful_switches)
+            {
+                #pragma omp for schedule(dynamic, kBatchSize)
+                for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                    if (switch_done[switch_id]) continue;
+
+                    const edge_t e1 = edge_list_[2 * switch_id];
+                    const edge_t e2 = edge_list_[2 * switch_id + 1];
+
+                    if (logging) {
+                        #pragma omp critical
+                        std::cout << "A" << switch_id << " ";
+                    }
+
+                    auto[u, v] = to_nodes(e1);
+                    auto[x, y] = to_nodes(e2);
+
+                    swap_if(e1 < e2, x, y);
+
+                    const edge_t e3 = to_edge(u, x);
+                    const edge_t e4 = to_edge(v, y);
+
+                    if (u == x || v == y || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4) { // prevent self-loops
+                        switch_done[switch_id] = true;
+                        continue;
+                    }
+
+                    enum DependencyResult {
+                        SKIP = 0,
+                        COLLISION = 1,
+                        NO_COLLISION = 2
+                    };
+                    auto check_dependency = [&](auto eid) {
+                        auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] = edge_dependencies
+                                .lookup_dependencies(eid);
+                        if (erasing_switch > switch_id || insert_resolved) return COLLISION;
+                        if (erase_resolved && inserting_switch >= switch_id) return NO_COLLISION;
+                        return SKIP;
+                    };
+
+                    auto e3_result = check_dependency(e3);
+                    auto e4_result = check_dependency(e4);
+                    bool collision = e3_result == COLLISION || e4_result == COLLISION;
+                    bool skip = !collision && (e3_result == SKIP || e4_result == SKIP);
+                    if (skip) {
+                        all_done.store(false, std::memory_order_release);
+                        continue;
+                    }
+                    if (collision) {
+                        edge_dependencies.announce_erase_failed(e1, switch_id);
+                        edge_dependencies.announce_erase_failed(e2, switch_id);
+                        edge_dependencies.announce_insert_failed(e3, switch_id);
+                        edge_dependencies.announce_insert_failed(e4, switch_id);
+                        switch_done[switch_id] = true;
+                        continue;
+                    }
+
+                    edge_list_[2 * switch_id] = e3;
+                    edge_list_[2 * switch_id + 1] = e4;
+
+                    edge_dependencies.announce_erase_succeeded(e1, switch_id);
+                    edge_dependencies.announce_erase_succeeded(e2, switch_id);
+                    edge_dependencies.announce_insert_succeeded(e3, switch_id);
+                    edge_dependencies.announce_insert_succeeded(e4, switch_id);
+
+                    switch_done[switch_id] = true;
+
+                    if (logging) {
+                        #pragma omp critical
+                        std::cout << "S" << switch_id << " ";
+                    }
+
+                    ++successful_switches;
+                }
+            }
+        } while (!all_done);
 
         if (logging) std::cout << std::endl;
 
