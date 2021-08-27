@@ -22,6 +22,7 @@
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -104,6 +105,8 @@ int main() {
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen);
+        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
 
         std::cout << "\n";
     }
