@@ -103,6 +103,8 @@ int main() {
                 for (int repeat = 0; repeat < 100; ++repeat) {
                     run_basic_test<AlgorithmParallelGlobal>("parallel-global", n, target_m, num_threads, gen);
                     run_permutation_test<AlgorithmParallelGlobal>("parallel-global", n, target_m, num_threads, gen);
+                    
+                    run_basic_test<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", n, target_m, num_threads, gen);
                     run_permutation_test<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", n, target_m, num_threads, gen);
 
                     std::cout << "n=" << n << " d=" << d << " t=" << t << "\n";
