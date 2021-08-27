@@ -24,6 +24,7 @@
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
 
 #include <es/AdjacencyVector.hpp>
 
@@ -56,7 +57,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 }
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = false) {
+void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
     edge_t m = graph.numberOfEdges();
 
     Algo es(graph);
@@ -82,7 +83,7 @@ int main() {
     edge_t target_m = n * 1.44;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.5);
+        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.1);
         std::vector<NetworKit::count> ds;
         bool realizable;
         do {
@@ -106,6 +107,8 @@ int main() {
         run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen);
         //run_benchmark<AlgorithmParallelVectorSet<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-ll", graph, gen);
         //run_benchmark<AlgorithmParallelGlobalES<4, ThreadsafeSetLockedList<edge_t, edge_hash_crc32>>>("parallel-global-ll", graph, gen);
 
