@@ -29,19 +29,19 @@ public:
         auto iter = insert(edge);
         iter->type = ERASE;
         iter->switch_id = sid;
-        iter->resolved = false;
+        iter->resolved.store(false, std::memory_order_release);
     }
 
     void announce_insert(edge_t edge, size_t sid) {
         auto iter = insert(edge);
         iter->type = INSERT;
         iter->switch_id = sid;
-        iter->resolved = false;
+        iter->resolved.store(false, std::memory_order_release);
     }
 
     void announce_erase_succeeded(edge_t edge, size_t sid) {
         auto iter = find_erase(edge, sid);
-        iter->resolved = true;
+        iter->resolved.store(true, std::memory_order_release);
     }
 
     void announce_erase_failed(edge_t edge, size_t sid) {
@@ -51,7 +51,7 @@ public:
 
     void announce_insert_succeeded(edge_t edge, size_t sid) {
         auto iter = find_insert(edge, sid);
-        iter->resolved = true;
+        iter->resolved.store(true, std::memory_order_release);
     }
 
     void announce_insert_failed(edge_t edge, size_t sid) {
@@ -70,11 +70,11 @@ public:
             if (iter->round < round_) break;
             if (iter->edge == edge && iter->type == ERASE) {
                 erasing_switch = iter->switch_id;
-                erase_resolved = iter->resolved;
+                erase_resolved = iter->resolved.load(std::memory_order_consume);
             }
             if (iter->edge == edge && iter->type == INSERT && iter->switch_id < inserting_switch) {
                 inserting_switch = iter->switch_id;
-                insert_resolved = iter->resolved;
+                insert_resolved = iter->resolved.load(std::memory_order_consume);
             }
             bucket = (bucket + 1) & mod_mask_;
         }
@@ -92,7 +92,7 @@ private:
         edge_t edge = kEmpty_;
         size_t switch_id = 0;
         std::atomic<int> round = -1;
-        bool resolved = true;
+        std::atomic<bool> resolved = true;
         DependencyType type = NONE;
     };
 
