@@ -3,6 +3,8 @@
 #include <random>
 #include <vector>
 
+#include <shuffle/algorithms/InplaceScatterShuffle.hpp>
+
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <es/ParallelEdgeSet.hpp>
 #include <es/RandomBits.hpp>
@@ -55,11 +57,8 @@ public:
         while (true) {
             incpwl::ScopedTimer timer;
 
-            {
-                //incpwl::ScopedTimer timer("shuffle");
-                shuffle::GeneratorProvider gen_prov(gen);
-                shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
-            }
+            shuffle::GeneratorProvider gen_prov(gen);
+            shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
 
             #pragma omp parallel reduction(+:successful_switches,sync_rejects)
             {
