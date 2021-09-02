@@ -13,8 +13,8 @@ namespace es {
 
 struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
     using EdgeDependenciesStore = EdgeDependenciesNoWaitV3<edge_hash_crc32>;
+    static constexpr bool kPrefetch = false;
 
-public:
     AlgorithmParallelGlobalNoWaitV3(const NetworKit::Graph &graph, double load_factor = 2.0) : AlgorithmBase(graph),
                                                                                                edge_dependencies(graph.numberOfEdges(),
                                                                                                                  load_factor) {
@@ -202,6 +202,16 @@ public:
                 return true;
             };
 
+            auto prefetch = [&] (auto switch_id) {
+                const auto & cache = switch_cache_[switch_id];
+                __builtin_prefetch(cache.e1_erase, 1, 1);
+                __builtin_prefetch(cache.e2_erase, 1, 1);
+                __builtin_prefetch(cache.e3_erase, 0, 0);
+                __builtin_prefetch(cache.e4_erase, 0, 0);
+                __builtin_prefetch(cache.e3_insert, 1, 1);
+                __builtin_prefetch(cache.e4_insert, 1, 1);
+            };
+
             std::vector<size_t> switch_ids, delayed_switch_ids;
             delayed_switch_ids.reserve(num_switches / omp_get_num_threads() / 8);
 
@@ -215,6 +225,8 @@ public:
 
                 #pragma omp for schedule(static, kBatchSize)
                 for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                    if (TLX_LIKELY(kPrefetch&& switch_id < num_switches - 1))
+                        prefetch(switch_id + 1);
                     auto done = try_process(switch_id);
                     if (!done)
                         delayed_switch_ids.push_back(switch_id);
@@ -250,6 +262,9 @@ public:
                 #pragma omp barrier
 
                 for (size_t i = 0; i < num_remaining_switches; ++i) {
+                    if (TLX_LIKELY(kPrefetch && i < num_remaining_switches - 1))
+                        prefetch(switch_ids[i + 1]);
+
                     auto done = try_process(switch_ids[i]);
                     if (!done)
                         delayed_switch_ids.push_back(switch_ids[i]);

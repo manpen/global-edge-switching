@@ -23,6 +23,7 @@
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -79,7 +80,7 @@ int main() {
     edge_t target_m = n * 1.44;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.1);
+        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.01);
         std::vector<NetworKit::count> ds;
         bool realizable;
         do {
@@ -96,17 +97,19 @@ int main() {
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
 
-        run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
-        omp_set_num_threads(4);
+        //run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        /*omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
         omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen);
-        omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen); */
+        //omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
+        //omp_set_num_threads(4);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
 
         std::cout << "\n";
     }
