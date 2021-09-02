@@ -139,6 +139,15 @@ struct EdgeDependenciesNoWaitV3 {
         }
     }
 
+    using hint_t = std::pair<edge_t, size_t>;
+    hint_t prefetch(edge_t edge, DependencyType dep_type) const {
+        const auto key = to_key(edge, dep_type);
+        size_t bucket = hash_func_(edge) & mod_mask_;
+        __builtin_prefetch(dependencies_.data() + bucket, 1, 1);
+        __builtin_prefetch(dependencies_.data() + bucket + 1, 1, 1);
+        return {key, bucket};
+    }
+
     std::pair<iterator_t, bool> find_or_insert(edge_t edge, DependencyType dep_type) {
         return find_or_insert_<true>(edge, dep_type);
     }
@@ -147,13 +156,12 @@ struct EdgeDependenciesNoWaitV3 {
         return find_or_insert_<false>(edge, dep_type).first;
     }
 
-    using hint_t = std::pair<edge_t, size_t>;
-    hint_t prefetch(edge_t edge, DependencyType dep_type) const {
-        const auto key = to_key(edge, dep_type);
-        size_t bucket = hash_func_(edge) & mod_mask_;
-        __builtin_prefetch(dependencies_.data() + bucket, 1, 1);
-        __builtin_prefetch(dependencies_.data() + bucket + 1, 1, 1);
-        return {key, bucket};
+    std::pair<iterator_t, bool> find_or_insert(hint_t hint) {
+        return find_or_insert_<true>(hint);
+    }
+
+    [[nodiscard]] iterator_t find(hint_t hint) {
+        return find_or_insert_<false>(hint).first;
     }
 
     iterator_t announce_erase(edge_t edge, switch_t sid) {

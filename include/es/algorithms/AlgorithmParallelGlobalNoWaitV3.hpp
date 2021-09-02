@@ -98,14 +98,14 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
             auto try_process = [&](auto switch_id) {
                 // returns false if switch was delayed
                 auto &cache = switch_cache_[switch_id];
-                auto[e1, e2, e3, e4, trivial_reject] = fetch_switch_infos(switch_id);
+                auto[_e1, _e2, e3, e4, _triv_reject] = fetch_switch_infos(switch_id);
 
                 if (logging) {
                     #pragma omp critical
                     std::cout << "A" << switch_id << " ";
                 }
 
-                if (trivial_reject)
+                if (cache.e1_erase == nullptr) // encoded trivial reject this way
                     return true;
 
                 bool skip = false; // only valid if collision == false
@@ -130,13 +130,19 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
                     return inserting_switch == switch_id;
                 };
 
+                EdgeDependenciesStore::hint_t e3_hint, e4_hint;
+                if (cache.e3_erase == invalid_cache_pointer) {
+                    e3_hint = edge_dependencies.prefetch(e3, EdgeDependenciesStore::DependencyType::Erase);
+                    e4_hint = edge_dependencies.prefetch(e4, EdgeDependenciesStore::DependencyType::Erase);
+                }
+
                 auto e3_insert_owner = check_insert_dependency(cache.e3_insert);
                 auto e4_insert_owner = check_insert_dependency(cache.e4_insert);
 
                 if (!collision) {
                     if (cache.e3_erase == invalid_cache_pointer) {
-                        cache.e3_erase = edge_dependencies.find(e3, EdgeDependenciesStore::DependencyType::Erase);
-                        cache.e4_erase = edge_dependencies.find(e4, EdgeDependenciesStore::DependencyType::Erase);
+                        cache.e3_erase = edge_dependencies.find(e3_hint);
+                        cache.e4_erase = edge_dependencies.find(e4_hint);
                     }
                     check_erase_dependency(cache.e3_erase);
                     check_erase_dependency(cache.e4_erase);
@@ -153,7 +159,6 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
                     if (e4_insert_owner) cache.e4_insert->announce_insert_failed(switch_id);
 
                 } else {
-
                     edge_list_[2 * switch_id] = e3;
                     edge_list_[2 * switch_id + 1] = e4;
 
@@ -198,10 +203,11 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
                     auto to_announce = trivial_reject ? kNoSwitch : switch_id;
 
                     if (false) {
-                        auto e1_hint = edge_dependencies.prefetch(e1, EdgeDependenciesStore::DependencyType::Erase);
-                        auto e2_hint = edge_dependencies.prefetch(e2, EdgeDependenciesStore::DependencyType::Erase);
+                        EdgeDependenciesStore::hint_t e1_hint, e2_hint, e3_hint, e4_hint;
 
-                        EdgeDependenciesStore::hint_t e3_hint, e4_hint;
+                        e1_hint = edge_dependencies.prefetch(e1, EdgeDependenciesStore::DependencyType::Erase);
+                        e2_hint = edge_dependencies.prefetch(e2, EdgeDependenciesStore::DependencyType::Erase);
+
                         if (!trivial_reject) {
                             e3_hint = edge_dependencies.prefetch(e3, EdgeDependenciesStore::DependencyType::Insert);
                             e4_hint = edge_dependencies.prefetch(e4, EdgeDependenciesStore::DependencyType::Insert);
@@ -210,7 +216,11 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
                         cache.e1_erase = edge_dependencies.announce_erase(e1_hint, to_announce);
                         cache.e2_erase = edge_dependencies.announce_erase(e2_hint, to_announce);
 
-                        if (trivial_reject) continue;
+                        if (trivial_reject) {
+                            cache.e1_erase = nullptr;
+                            continue;
+                        }
+
 
                         cache.e3_insert = edge_dependencies.announce_insert_if_minimum(e3_hint, switch_id);
                         cache.e4_insert = edge_dependencies.announce_insert_if_minimum(e4_hint, switch_id);
@@ -219,7 +229,10 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
                         cache.e1_erase = edge_dependencies.announce_erase(e1, to_announce);
                         cache.e2_erase = edge_dependencies.announce_erase(e2, to_announce);
 
-                        if (trivial_reject) continue;
+                        if (trivial_reject) {
+                            cache.e1_erase = nullptr;
+                            continue;
+                        }
 
                         cache.e3_insert = edge_dependencies.announce_insert_if_minimum(e3, switch_id);
                         cache.e4_insert = edge_dependencies.announce_insert_if_minimum(e4, switch_id);
