@@ -15,6 +15,8 @@ template<typename HashFcn>
 struct EdgeDependenciesNoWaitV3 {
 
     using switch_t = size_t;
+    static_assert(sizeof(switch_t) >= sizeof(edge_t));
+
     static constexpr auto kEdgeBits = 8 * sizeof(edge_t);
     static constexpr auto kEdgeMask = edge_t(-1) >> 1;
     static constexpr auto kResolvedBit   = ~(switch_t(-1) >> 1);
