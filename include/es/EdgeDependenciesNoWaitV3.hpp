@@ -147,6 +147,15 @@ struct EdgeDependenciesNoWaitV3 {
         return find_or_insert_<false>(edge, dep_type).first;
     }
 
+    using hint_t = std::pair<edge_t, size_t>;
+    hint_t prefetch(edge_t edge, DependencyType dep_type) const {
+        const auto key = to_key(edge, dep_type);
+        size_t bucket = hash_func_(edge) & mod_mask_;
+        __builtin_prefetch(dependencies_.data() + bucket, 1, 1);
+        __builtin_prefetch(dependencies_.data() + bucket + 1, 1, 1);
+        return {key, bucket};
+    }
+
     iterator_t announce_erase(edge_t edge, switch_t sid) {
         auto [iter, is_new] = find_or_insert_<true>(edge, DependencyType::Erase);
         assert(is_new);
@@ -154,8 +163,21 @@ struct EdgeDependenciesNoWaitV3 {
         return iter;
     }
 
+    iterator_t announce_erase(hint_t hint, switch_t sid) {
+        auto [iter, is_new] = find_or_insert_<true>(hint);
+        assert(is_new);
+        iter->announce_erase(sid);
+        return iter;
+    }
+
     iterator_t announce_insert_if_minimum(edge_t edge, switch_t sid) {
         auto iter = find_or_insert_<true>(edge, DependencyType::Insert).first;
+        iter->announce_insert_if_minimum(sid);
+        return iter;
+    }
+
+    iterator_t announce_insert_if_minimum(hint_t hint, switch_t sid) {
+        auto iter = find_or_insert_<true>(hint).first;
         iter->announce_insert_if_minimum(sid);
         return iter;
     }
@@ -179,15 +201,22 @@ private:
         return {edge & kEdgeMask, static_cast<DependencyType>(edge >> (kEdgeBits - 1))};
     }
 
+
     template <bool AllowInsert>
     [[nodiscard]] std::pair<iterator_t, bool> find_or_insert_(edge_t edge, DependencyType dep_type) {
         const auto key = to_key(edge, dep_type);
+        size_t bucket = hash_func_(edge) & mod_mask_;
+        return find_or_insert_<AllowInsert>({key, bucket});
+    }
+
+    template <bool AllowInsert>
+    [[nodiscard]] std::pair<iterator_t, bool> find_or_insert_(hint_t hint) {
+        auto [key,  bucket] = hint;
 
 #ifdef EDGE_DEPS_STATS
         ++stat_calls;
 #endif
 
-        size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
 #ifdef EDGE_DEPS_STATS
             ++stat_iters;

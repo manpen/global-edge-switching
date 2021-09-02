@@ -197,14 +197,34 @@ struct AlgorithmParallelGlobalNoWaitV3 : public AlgorithmBase {
 
                     auto to_announce = trivial_reject ? kNoSwitch : switch_id;
 
-                    cache.e1_erase = edge_dependencies.announce_erase(e1, to_announce);
-                    cache.e2_erase = edge_dependencies.announce_erase(e2, to_announce);
+                    if (false) {
+                        auto e1_hint = edge_dependencies.prefetch(e1, EdgeDependenciesStore::DependencyType::Erase);
+                        auto e2_hint = edge_dependencies.prefetch(e2, EdgeDependenciesStore::DependencyType::Erase);
 
-                    if (trivial_reject) continue;
+                        EdgeDependenciesStore::hint_t e3_hint, e4_hint;
+                        if (!trivial_reject) {
+                            e3_hint = edge_dependencies.prefetch(e3, EdgeDependenciesStore::DependencyType::Insert);
+                            e4_hint = edge_dependencies.prefetch(e4, EdgeDependenciesStore::DependencyType::Insert);
+                        }
 
-                    cache.e3_insert = edge_dependencies.announce_insert_if_minimum(e3, switch_id);
-                    cache.e4_insert = edge_dependencies.announce_insert_if_minimum(e4, switch_id);
-                    cache.e3_erase = invalid_cache_pointer;
+                        cache.e1_erase = edge_dependencies.announce_erase(e1_hint, to_announce);
+                        cache.e2_erase = edge_dependencies.announce_erase(e2_hint, to_announce);
+
+                        if (trivial_reject) continue;
+
+                        cache.e3_insert = edge_dependencies.announce_insert_if_minimum(e3_hint, switch_id);
+                        cache.e4_insert = edge_dependencies.announce_insert_if_minimum(e4_hint, switch_id);
+                        cache.e3_erase = invalid_cache_pointer;
+                    } else {
+                        cache.e1_erase = edge_dependencies.announce_erase(e1, to_announce);
+                        cache.e2_erase = edge_dependencies.announce_erase(e2, to_announce);
+
+                        if (trivial_reject) continue;
+
+                        cache.e3_insert = edge_dependencies.announce_insert_if_minimum(e3, switch_id);
+                        cache.e4_insert = edge_dependencies.announce_insert_if_minimum(e4, switch_id);
+                        cache.e3_erase = invalid_cache_pointer;
+                    }
                 }
 
                 #pragma omp for schedule(static, kBatchSize)
