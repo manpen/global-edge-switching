@@ -28,6 +28,14 @@
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
+#include <networkit/auxiliary/Random.hpp>
+
+#ifdef ENABLE_ITT
+#define ITT_ENABLED(X) X
+#include <ittnotify.h>
+#else
+#define ITT_ENABLED(X)
+#endif
 
 using namespace es;
 
@@ -54,7 +62,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 }
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
+void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937_64 &gen, bool detailed = true) {
     edge_t m = graph.numberOfEdges();
 
     Algo es(graph);
@@ -63,33 +71,39 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
         incpwl::ScopedTimer timer;
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
+
+        ITT_ENABLED(__itt_pause());
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
+        ITT_ENABLED(__itt_resume());
+
         if (detailed) {
             std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << label << ": Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
+        std::cout << label << ": Successful switches per second: " << 1e-6 * sucessful_switches / timer.elapsedSeconds() << "M \n";
     }
 }
 
 int main() {
+    ITT_ENABLED(__itt_pause());
     std::mt19937_64 gen{0};
+    Aux::Random::setSeed(1337, true);
 
     node_t n = 1<<20;
-    edge_t target_m = n * 1.44;
 
-    for (int repeat = 0; repeat < 5; ++repeat) {
+    NetworKit::Graph graph;
+    {
+        incpwl::ScopedTimer timer("Seed graph");
         NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -2.01);
         std::vector<NetworKit::count> ds;
-        bool realizable;
-        do {
-            ds_gen.run();
-            ds = ds_gen.getDegreeSequence(n);
-            realizable = NetworKit::HavelHakimiGenerator(ds).isRealizable();
-        } while (!realizable);
-        auto graph = NetworKit::HavelHakimiGenerator(ds).generate();
+        ds_gen.run();
+        ds = ds_gen.getDegreeSequence(n);
+        graph = NetworKit::HavelHakimiGenerator(ds, false).generate();
+    }
+    std::cout << "Nodes: " << graph.numberOfNodes() << " Edges: " << graph.numberOfEdges() << std::endl;
 
+    for (int repeat = 0; repeat < 5; ++repeat) {
         //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
         //run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
         /*run_benchmark<AlgorithmSet<tsl::robin_set<
@@ -107,8 +121,9 @@ int main() {
         omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen); */
         //omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
+        //run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         //omp_set_num_threads(4);
+
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
 
         std::cout << "\n";
