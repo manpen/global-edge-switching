@@ -27,6 +27,8 @@ struct EdgeDependenciesNoWaitV3 {
 
     class EdgeDependency {
     public:
+        EdgeDependency() {}
+
     // erase announcements
         void announce_erase(switch_t sid, std::memory_order order = std::memory_order_relaxed) {
             assert(from_key(edge_).second == DependencyType::Erase);
@@ -111,7 +113,9 @@ struct EdgeDependenciesNoWaitV3 {
     EdgeDependenciesNoWaitV3(size_t num_edges, double load_factor)
         : dependencies_(tlx::round_up_to_power_of_two(static_cast<size_t>(load_factor * 2 * num_edges + 1)))
         , mod_mask_(dependencies_.size() - 1)
-    {}
+    {
+        clear();
+    }
 
 #ifdef EDGE_DEPS_STATS
     ~EdgeDependenciesNoWaitV3() {
@@ -122,6 +126,10 @@ struct EdgeDependenciesNoWaitV3 {
 #endif
 
     void next_round() {
+        clear();
+    }
+
+    void clear() {
         #pragma omp parallel for schedule(dynamic, 1024)
         for(size_t i = 0; i < dependencies_.size(); ++i) {
             dependencies_[i].edge_.store(kEmpty_, std::memory_order_relaxed);
