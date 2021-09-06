@@ -46,7 +46,7 @@ public:
         }
     }
 
-    void announce_insert_if_minimum(edge_t edge, size_t sid) {
+    bool announce_insert_if_minimum(edge_t edge, size_t sid) {
         size_t bucket = hash_func_(edge) & mod_mask_;
         while (true) {
             auto iter = dependencies_.begin() + bucket;
@@ -61,7 +61,7 @@ public:
                     iter->switch_id = sid;
                     iter->resolved = false;
                     iter->round = round_;
-                    break;
+                    return true;
                 }
                 continue;
             }
@@ -73,7 +73,7 @@ public:
                                                           std::memory_order_release,
                                                           std::memory_order_consume);
                 }
-                break;
+                return switch_at_iter == sid;
             }
             bucket = (bucket + 1) & mod_mask_;
         }
