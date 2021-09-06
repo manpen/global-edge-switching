@@ -41,7 +41,7 @@ struct edge_hash_crc32 {
         auto l = _mm_crc32_u64(0, e);
         auto h = _mm_crc32_u64(l, e);
 
-        return (l | (h << 32));
+        return  e ^ (l | (h << 32));
     }
 };
 

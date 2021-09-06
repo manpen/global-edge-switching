@@ -17,7 +17,7 @@ add_subdirectory(extlib/range-v3)
 
 add_library(libedgeswitch INTERFACE)
 target_include_directories(libedgeswitch
-        INTERFACE include /usr/local/Cellar/google-sparsehash/2.0.4/include/ extlib/shuffle/include)
+        INTERFACE include /usr/local/Cellar/google-sparsehash/2.0.4/include/ extlib/shuffle/include extlib/fastrange/)
 target_link_libraries(libedgeswitch
         INTERFACE
         tlx range-v3 networkit
