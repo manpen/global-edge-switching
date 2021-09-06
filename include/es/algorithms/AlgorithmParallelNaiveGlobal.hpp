@@ -63,22 +63,16 @@ public:
             #pragma omp parallel reduction(+:successful_switches,sync_rejects)
             {
                 auto tid = static_cast<unsigned>(omp_get_thread_num());
-                shuffle::RandomBits fair_coin;
                 auto gen = gens[tid];
 
-                size_t edges_per_thread = edge_list_.size() / omp_get_num_threads();
-                size_t beg = tid * edges_per_thread;
-                size_t end = tid + 1 == omp_get_num_threads() ? edge_list_.size() : beg + edges_per_thread;
+                #pragma omp for schedule(dynamic,1024)
+                for(size_t i=0; i<edge_list_.size(); i+=2) {
+                    auto e1 = edge_list_[i];
+                    auto e2 = edge_list_[i+1];
+                    auto [u, v] = to_nodes(e1);
+                    auto [x, y] = to_nodes(e2);
 
-                for (size_t i = beg; i + 1 < end; i += 2) {
-                    auto [u, v] = to_nodes(edge_list_[i]);
-                    auto [x, y] = to_nodes(edge_list_[i + 1]);
-
-                    if (fair_coin(gen))
-                        std::swap(x, y);
-
-                    if (u == x || v == y)
-                        continue; // prevent self-loops
+                    swap_if(e1 < e2, x, y);
 
                     auto ticket3 = edge_set_.insert(u, x, tid);
                     if (!ticket3)
