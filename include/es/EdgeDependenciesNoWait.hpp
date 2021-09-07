@@ -119,6 +119,32 @@ public:
         }
     }
 
+    [[nodiscard]] std::tuple<size_t, bool, size_t, bool> lookup_dependencies(edge_t edge) const {
+        bool erase_found = false, insert_found = false;
+        size_t erasing_switch = 0;
+        bool erase_resolved = true;
+        size_t inserting_switch = kNone_;
+        bool insert_resolved = false;
+        size_t bucket = hash_func_(edge) & mod_mask_;
+        while (true) {
+            auto iter = dependencies_.begin() + bucket;
+            if (iter->round < round_) break;
+            if (iter->edge == edge && iter->type == ERASE) {
+                erasing_switch = iter->switch_id;
+                erase_resolved = iter->resolved;
+                erase_found = true;
+            }
+            if (iter->edge == edge && iter->type == INSERT) {
+                inserting_switch = iter->switch_id;
+                insert_resolved = iter->resolved;
+                insert_found = true;
+            }
+            if (erase_found && insert_found) break;
+            bucket = (bucket + 1) & mod_mask_;
+        }
+        return {erasing_switch, erase_resolved, inserting_switch, insert_resolved};
+    }
+
 private:
     enum DependencyType : char {
         NONE = 0,

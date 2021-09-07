@@ -140,11 +140,8 @@ public:
                     const edge_t e3 = to_edge(u, x);
                     const edge_t e4 = to_edge(v, y);
 
-                    auto e3_erase_result = check_erase_dependency(e3, switch_id);
-                    auto e4_erase_result = check_erase_dependency(e4, switch_id);
-                    auto e3_insert_result = check_insert_dependency(e3, switch_id);
-                    auto e4_insert_result = check_insert_dependency(e4, switch_id);
-
+                    auto [e3_erase_result, e3_insert_result] = check_dependencies(e3, switch_id);
+                    auto [e4_erase_result, e4_insert_result] = check_dependencies(e4, switch_id);
                     bool collision = e3_erase_result == COLLISION || e3_insert_result == COLLISION ||
                                      e4_erase_result == COLLISION || e4_insert_result == COLLISION;
                     bool skip = !collision && (e3_erase_result == SKIP || e3_insert_result == SKIP ||
@@ -241,6 +238,19 @@ private:
         if (insert_resolved) return COLLISION;
         if (inserting_switch == switch_id) return NO_COLLISION;
         return SKIP;
+    }
+
+    std::pair<DependencyResult, DependencyResult> check_dependencies(edge_t eid, size_t switch_id) {
+        auto [erasing_switch, erase_resolved, inserting_switch, insert_resolved] =
+                edge_dependencies.lookup_dependencies(eid);
+        DependencyResult erase_result, insert_result;
+        if (erasing_switch > switch_id) erase_result = COLLISION;
+        else if (erase_resolved) erase_result = NO_COLLISION;
+        else erase_result = SKIP;
+        if (insert_resolved) insert_result = COLLISION;
+        else if (inserting_switch == switch_id) insert_result = NO_COLLISION;
+        else insert_result = SKIP;
+        return {erase_result, insert_result};
     }
 };
 
