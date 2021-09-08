@@ -53,10 +53,10 @@ void run_benchmark(std::string_view algo, NetworKit::Graph graph, std::mt19937_6
         const auto sucessful_switches = es->do_switches(gen, requested_switches);
         if (detailed) {
             std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-            std::cout << "Runtime " << timer.elapsedSeconds() << "s\n";
+            std::cout << "Runtime: " << timer.elapsedSeconds() << "s\n";
             std::cout << "Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << "Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
+        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
     }
 }
 

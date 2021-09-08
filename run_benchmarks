@@ -18,12 +18,10 @@ for algo in "robin" "naive" "global-naive" "global" "global-no-wait" ; do
    fi
   fi
   # real-world sequences
-  bench_file="$bench_dir/soc-twitter-follows_""$algo""_""$repeats""_""$spe""_""$p"
-  "$benchmark_executable" file "degseqs/soc-twitter-follows" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
-  bench_file="$bench_dir/web-wikipedia2009_""$algo""_""$repeats""_""$spe""_""$p"
-  "$benchmark_executable" file "degseqs/web-wikipedia2009" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
-  bench_file="$bench_dir/ca-dblp-2012_""$algo""_""$repeats""_""$spe""_""$p"
-  "$benchmark_executable" file "degseqs/ca-dblp-2012" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  for ds in degseqs/* ; do
+   bench_file="$bench_dir/"$(basename $ds)"_""$algo""_""$repeats""_""$spe""_""$p"
+   "$benchmark_executable" file "$ds" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  done
   # artificial sequences
   for n in 16 20 24 28 ; do
    # random-graph-sequences
@@ -32,8 +30,8 @@ for algo in "robin" "naive" "global-naive" "global" "global-no-wait" ; do
     "$benchmark_executable" random "$n" "$d" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
    done
    # powerlaw-sequences
-   for g in "3" "2.5" "2.3" "2.2" "2.1" "2" ; do
-    for d in 1 2 5 10 ; do
+   for g in "3" "2.5" "2" ; do
+    for d in 1 2 5 ; do
      bench_file="$bench_dir/powerlaw_""$n""_""$g""_""$d""_""$algo""_""$repeats""_""$spe""_""$p"
      "$benchmark_executable" powerlaw "$n" "$g" "$d" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
     done
