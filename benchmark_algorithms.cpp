@@ -31,7 +31,8 @@
 
 using namespace es;
 
-void run_benchmark(std::string_view algo, NetworKit::Graph graph, std::mt19937_64& gen, bool detailed = true) {
+void run_benchmark(std::string_view algo, NetworKit::Graph graph, std::mt19937_64& gen,
+                   size_t switches_per_edge = 10, bool detailed = true) {
     std::unique_ptr<AlgorithmBase> es;
     if (algo == "robin") {
         es = std::make_unique<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
@@ -48,7 +49,6 @@ void run_benchmark(std::string_view algo, NetworKit::Graph graph, std::mt19937_6
     {
         incpwl::ScopedTimer timer;
         const edge_t m = graph.numberOfEdges();
-        const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
         const auto sucessful_switches = es->do_switches(gen, requested_switches);
         if (detailed) {
@@ -85,10 +85,12 @@ void benchmark_file(int argc, const char** argv) {
     size_t threads = argc > 3 ? std::stoi(argv[3]) : 4;
     size_t repeats = argc > 4 ? std::stoi(argv[4]) : 1;
     std::string algo = argc > 5 ? argv[5] : "global-no-wait";
-    bool detailed = argc > 6 ? std::string(argv[6]) == "verbose" : false;
+    size_t switches = argc > 6 ? std::stoi(argv[6]) : 10;
+    bool detailed = argc > 7 ? std::string(argv[7]) == "verbose" : false;
 
     std::cout << "Starting file experiment with parameters" << std::endl
               << "algo=" << algo << std::endl
+              << "switches=" << switches << "m" << std::endl
               << "file=" << filename << std::endl
               << "n=" << degree_sequence.size() << std::endl
               << "m=" << m << std::endl
@@ -102,7 +104,7 @@ void benchmark_file(int argc, const char** argv) {
     while (repeats--) {
         auto graph = NetworKit::HavelHakimiGenerator(degree_sequence).generate();
 
-        run_benchmark(algo, graph, gen, detailed);
+        run_benchmark(algo, graph, gen, switches, detailed);
 
         std::cout << "\n";
     }
@@ -114,10 +116,12 @@ void benchmark_random(int argc, const char** argv) {
     size_t threads = argc > 4 ? std::stoi(argv[4]) : 4;
     size_t repeats = argc > 5 ? std::stoi(argv[5]) : 1;
     std::string algo = argc > 6 ? argv[6] : "global-no-wait";
-    bool detailed = argc > 7 ? std::string(argv[7]) == "verbose" : false;
+    size_t switches = argc > 7 ? std::stoi(argv[7]) : 10;
+    bool detailed = argc > 8 ? std::string(argv[8]) == "verbose" : false;
 
     std::cout << "Starting random-graph experiment with parameters" << std::endl
               << "algo=" << algo << std::endl
+              << "switches=" << switches << "m" << std::endl
               << "n=" << n << std::endl
               << "m=" << target_m << std::endl
               << "p=" << threads << std::endl
@@ -130,7 +134,7 @@ void benchmark_random(int argc, const char** argv) {
         double p = (2.0 * target_m) / n / (n - 1);
         auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
 
-        run_benchmark(algo, graph, gen, detailed);
+        run_benchmark(algo, graph, gen, switches, detailed);
 
         std::cout << "\n";
     }
@@ -138,18 +142,20 @@ void benchmark_random(int argc, const char** argv) {
 
 void benchmark_powerlaw(int argc, const char** argv) {
     node_t n = argc > 2 ? (1<<std::stoi(argv[2])) : 1<<20;
-    edge_t target_m = argc > 3 ? n * std::stod(argv[3]) : n * 1.44;
-    double gamma = argc > 4 ? std::stod(argv[4]) : 2.5;
+    double gamma = argc > 3 ? std::stod(argv[3]) : 2.5;
+    edge_t d_min = argc > 4 ? std::stod(argv[4]) : 1;
     size_t threads = argc > 5 ? std::stoi(argv[5]) : 4;
     size_t repeats = argc > 6 ? std::stoi(argv[6]) : 1;
     std::string algo = argc > 7 ? argv[7] : "global-no-wait";
-    bool detailed = argc > 8 ? std::string(argv[8]) == "verbose" : false;
+    size_t switches = argc > 8 ? std::stoi(argv[8]) : 10;
+    bool detailed = argc > 9 ? std::string(argv[9]) == "verbose" : false;
 
     std::cout << "Starting powerlaw-graph experiment with parameters" << std::endl
               << "algo=" << algo << std::endl
+              << "switches=" << switches << "m" << std::endl
               << "n=" << n << std::endl
-              << "m=" << target_m << std::endl
               << "gamma=" << std::setprecision(3) << gamma << std::endl
+              << "min-degree=" << d_min << std::endl
               << "p=" << threads << std::endl
               << "repeats=" << repeats << std::endl << std::endl;
 
@@ -157,7 +163,7 @@ void benchmark_powerlaw(int argc, const char** argv) {
 
     std::mt19937_64 gen{0};
     while (repeats--) {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, -gamma);
+        NetworKit::PowerlawDegreeSequence ds_gen(d_min, n - 1, -gamma);
         std::vector<NetworKit::count> ds;
         bool realizable;
         do {
@@ -167,7 +173,7 @@ void benchmark_powerlaw(int argc, const char** argv) {
         } while (!realizable);
         auto graph = NetworKit::HavelHakimiGenerator(ds).generate();
 
-        run_benchmark(algo, graph, gen, detailed);
+        run_benchmark(algo, graph, gen, switches, detailed);
 
         std::cout << "\n";
     }
