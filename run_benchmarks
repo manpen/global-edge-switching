@@ -7,11 +7,11 @@ then
  mkdir "$bench_dir"
 fi
 
-spe=1
-repeats=1
+spe=10
+repeats=5
 
 for algo in "robin" "naive" "global-naive" "global" "global-no-wait" ; do
- for p in 1 2 4 8 16 32 64 ; do
+ for p in 1 2 4 8 16 ; do
   if test "$algo" == "robin" ; then
    if test "$p" != 1 ; then
     break
@@ -20,6 +20,10 @@ for algo in "robin" "naive" "global-naive" "global" "global-no-wait" ; do
   # real-world sequences
   bench_file="$bench_dir/soc-twitter-follows_""$algo""_""$repeats""_""$spe""_""$p"
   "$benchmark_executable" file "degseqs/soc-twitter-follows" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  bench_file="$bench_dir/web-wikipedia2009_""$algo""_""$repeats""_""$spe""_""$p"
+  "$benchmark_executable" file "degseqs/web-wikipedia2009" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  bench_file="$bench_dir/ca-dblp-2012_""$algo""_""$repeats""_""$spe""_""$p"
+  "$benchmark_executable" file "degseqs/ca-dblp-2012" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
   # artificial sequences
   for n in 16 20 24 28 ; do
    # random-graph-sequences
