@@ -13,8 +13,13 @@ add_subdirectory(extlib/robin-map)
 add_subdirectory(extlib/range-v3)
 
 add_library(libedgeswitch INTERFACE)
-target_include_directories(libedgeswitch
-        INTERFACE include /usr/local/Cellar/google-sparsehash/2.0.4/include/ extlib/shuffle/include)
+
+if (APPLE)
+    target_include_directories(libedgeswitch INTERFACE include /usr/local/Cellar/google-sparsehash/2.0.4/include/ extlib/shuffle/include)
+else()
+    target_include_directories(libedgeswitch INTERFACE include extlib/shuffle/include)
+endif()
+
 target_link_libraries(libedgeswitch
         INTERFACE
         tlx range-v3 networkit
