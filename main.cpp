@@ -36,6 +36,10 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
     auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
     edge_t m = graph.numberOfEdges();
 
+    incpwl::ScopedTimer init_timer;
+    std::cout << label << ": n=" << n << ",m=" << graph.numberOfEdges() << "\n";
+    std::cout << label << ": Init " << init_timer.elapsedSeconds() << "s\n";
+
     Algo es(graph);
 
     {
@@ -54,15 +58,11 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
 
 template <typename Algo>
 void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
-    edge_t m = graph.numberOfEdges();
-
-    incpwl::ScopedTimer init_timer;
     Algo es(graph);
-    std::cout << label << ": n=" << n << ",m=" << graph.numberOfEdges() << "\n";
-    std::cout << label << ": Init " << init_timer.elapsedSeconds() << "s\n";
 
     {
         incpwl::ScopedTimer timer;
+        edge_t m = graph.numberOfEdges();
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
@@ -71,7 +71,7 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << label << ": Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
+        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
     }
 }
 
@@ -115,5 +115,4 @@ int main() {
     //run_benchmark<EdgeSwitch_VectorSet<std::unordered_set<edge_t, edge_hash>>>("std::uset", n, target_m, gen);
 
     return 0;
-
 }
