@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16.3)
+cmake_minimum_required(VERSION 3.15)
 project(edge_switching)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -22,11 +22,17 @@ endif()
 
 target_link_libraries(libedgeswitch
         INTERFACE
-        tlx range-v3 networkit
+        tlx range-v3 networkit atomic
         hopscotch_map robin_map OpenMP::OpenMP_CXX)
 
 add_executable(edge_switching main.cpp)
 target_link_libraries(edge_switching PRIVATE libedgeswitch)
+
+add_executable(parallel_naive parallel_naive.cpp)
+target_link_libraries(parallel_naive PRIVATE libedgeswitch)
+
+add_executable(benchmark_parallel_naive benchmark_parallel_naive.cpp)
+target_link_libraries(benchmark_parallel_naive PRIVATE libedgeswitch)
 
 add_executable(benchmark_shuffle benchmark_shuffle.cpp)
 target_link_libraries(benchmark_shuffle PRIVATE libedgeswitch)

@@ -48,7 +48,7 @@ void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt199
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << label << ": Successful switches per second: " << (1. * sucessful_switches / m) / timer.elapsedSeconds() << "m \n";
+        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
     }
 }
 
@@ -96,16 +96,13 @@ int main() {
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
 
+        omp_set_num_threads(4);
+
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
-        omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
-        omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
-        omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
-        omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen);
-        omp_set_num_threads(4);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
 
         std::cout << "\n";

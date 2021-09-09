@@ -1,5 +1,8 @@
 add_executable(TestAlgorithms TestAlgorithms.cpp)
 target_link_libraries(TestAlgorithms libedgeswitch)
 
+add_executable(TestParallelEdgeSet TestParallelEdgeSet.cpp)
+target_link_libraries(TestParallelEdgeSet libedgeswitch)
+
 add_executable(TestAlgorithmParallelGlobal TestAlgorithmParallelGlobal.cpp)
 target_link_libraries(TestAlgorithmParallelGlobal libedgeswitch)
