@@ -56,7 +56,10 @@ template <typename Algo>
 void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
     edge_t m = graph.numberOfEdges();
 
+    incpwl::ScopedTimer init_timer;
     Algo es(graph);
+    std::cout << label << ": n=" << n << ",m=" << graph.numberOfEdges() << "\n";
+    std::cout << label << ": Init " << init_timer.elapsedSeconds() << "s\n";
 
     {
         incpwl::ScopedTimer timer;

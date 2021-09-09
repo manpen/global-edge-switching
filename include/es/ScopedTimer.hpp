@@ -21,7 +21,7 @@ class ScopedTimer {
     double *_output;
 
 public:
-    ScopedTimer() : _begin(Clock::now()), _scale(1), _offset(0), _output(nullptr) {}
+    ScopedTimer() : _begin(Clock::now()), _scale(0), _offset(0), _output(nullptr) {}
 
     ScopedTimer(const std::string &prefix, uint64_t scale = 0, double offset = 0.0) : _prefix(prefix), _begin(Clock::now()),
                                                                                       _scale(scale), _offset(offset), _output(nullptr) {}
