@@ -74,7 +74,7 @@ public:
                     }
                 };
 
-                #pragma omp for schedule(dynamic)
+                #pragma omp for schedule(dynamic,1<<8)
                 for(size_t i = 0; i < chunk_size; ++i) {
                     auto [u, v, edge_id1, ticket1] = sample_edge();
                     auto [x, y, edge_id2, ticket2] = sample_edge();

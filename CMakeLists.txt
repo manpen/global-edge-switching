@@ -3,8 +3,12 @@ project(edge_switching)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_PROFILE} -O2 -g -fno-omit-frame-pointer -DNDEBUG -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls")
+
+option(ENABLE_ITT "Enable Intels Instrumentation API" OFF)
+
+find_package(OpenMP REQUIRED)
 
 add_subdirectory(extlib/hopscotch-map)
 add_subdirectory(extlib/networkit)
@@ -13,11 +17,18 @@ add_subdirectory(extlib/range-v3)
 
 add_library(libedgeswitch INTERFACE)
 target_include_directories(libedgeswitch
-        INTERFACE include)
+        INTERFACE include /usr/local/Cellar/google-sparsehash/2.0.4/include/ extlib/shuffle/include extlib/fastrange/)
 target_link_libraries(libedgeswitch
         INTERFACE
-         tlx range-v3 networkit atomic
-         hopscotch_map robin_map )
+        tlx range-v3 networkit atomic
+        hopscotch_map robin_map OpenMP::OpenMP_CXX)
+
+if(ENABLE_ITT)
+    target_include_directories(libedgeswitch INTERFACE /opt/intel/vtune_profiler/sdk/include/)
+    target_link_directories(libedgeswitch INTERFACE /opt/intel/vtune_profiler/sdk/lib64)
+    target_link_libraries(libedgeswitch INTERFACE ittnotify ${CMAKE_DL_LIBS})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -D ENABLE_ITT")
+endif()
 
 add_executable(edge_switching main.cpp)
 target_link_libraries(edge_switching PRIVATE libedgeswitch)
