@@ -7,6 +7,7 @@
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 
@@ -102,6 +103,9 @@ int main() {
                 if (target_m < 4 * num_threads) continue;
 
                 for (int repeat = 0; repeat < 100; ++repeat) {
+                    run_basic_test<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", n, target_m, num_threads, gen);
+                    run_permutation_test<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", n, target_m, num_threads, gen);
+
                     run_basic_test<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", n, target_m, num_threads, gen);
                     run_permutation_test<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", n, target_m, num_threads, gen);
 

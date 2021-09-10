@@ -364,7 +364,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         }
         edge_list_ = std::move(edge_list_permuted);
 
-        do_round(true);
+        do_round(0);
     }
 
     NetworKit::Graph get_graph() override {
