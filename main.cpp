@@ -21,9 +21,9 @@
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -38,28 +38,6 @@
 #endif
 
 using namespace es;
-
-template <typename Algo>
-void run_benchmark(std::string_view label, node_t n, edge_t target_m, std::mt19937_64 &gen, bool detailed = false) {
-    double p = (2.0 * target_m) / n / (n - 1);
-    auto graph = NetworKit::ErdosRenyiGenerator(n, p, false, false).generate();
-    edge_t m = graph.numberOfEdges();
-
-    Algo es(graph);
-
-    {
-        incpwl::ScopedTimer timer;
-        const auto switches_per_edge = 100;
-        const auto requested_switches = switches_per_edge * m;
-        const auto sucessful_switches = es.do_switches(gen, requested_switches);
-        if (detailed) {
-            std::cout << label << ": Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-            std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
-            std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
-        }
-        std::cout << label << ": Successful switches per second: " << sucessful_switches / timer.elapsedSeconds() * 1e-6 << "M \n";
-    }
-}
 
 template <typename Algo>
 void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937_64 &gen, bool detailed = true) {
@@ -111,20 +89,15 @@ int main() {
         >>>("robin-s", n, target_m, gen);*/
         //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
 
-        //run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
-        /*omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
-        omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
-        omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
-        omp_set_num_threads(4);
-        run_benchmark<AlgorithmParallelGlobalNoWait>("parallel-global-no-wait", graph, gen); */
-        //omp_set_num_threads(4);
-        //run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
-        //omp_set_num_threads(4);
+//        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
 
+
+        run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
+        run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v4", graph, gen);
 
         std::cout << "\n";
     }
