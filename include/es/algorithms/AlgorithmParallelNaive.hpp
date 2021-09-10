@@ -13,7 +13,7 @@ struct AlgorithmParallelNaive : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaive(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.5)
+    AlgorithmParallelNaive(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0)
         : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), chunk_factor_(chunk_factor) {
         edge_list_.reserve(graph.numberOfEdges());
 

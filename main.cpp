@@ -40,13 +40,12 @@
 using namespace es;
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937_64 &gen, bool detailed = true) {
-    edge_t m = graph.numberOfEdges();
-
+void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
     Algo es(graph);
 
     {
         incpwl::ScopedTimer timer;
+        edge_t m = graph.numberOfEdges();
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
 
@@ -59,7 +58,7 @@ void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << label << ": Successful switches per second: " << 1e-6 * sucessful_switches / timer.elapsedSeconds() << "M \n";
+        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
     }
 }
 
@@ -97,7 +96,7 @@ int main() {
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
-        run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v4", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", graph, gen);
 
         std::cout << "\n";
     }
@@ -106,5 +105,4 @@ int main() {
     //run_benchmark<EdgeSwitch_VectorSet<std::unordered_set<edge_t, edge_hash>>>("std::uset", n, target_m, gen);
 
     return 0;
-
 }
