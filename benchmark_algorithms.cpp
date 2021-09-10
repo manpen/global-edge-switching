@@ -112,16 +112,21 @@ void benchmark_on_file(int argc, const char** argv) {
     omp_set_num_threads(threads);
 
     std::unique_ptr<AlgorithmBase> es;
-    if (algo == "robin") {
-        es = std::make_unique<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
-    } else if (algo == "naive") {
-        es = std::make_unique<AlgorithmParallelNaive>(graph);
-    } else if (algo == "global-naive") {
-        es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
-    } else if (algo == "global") {
-        es = std::make_unique<AlgorithmParallelGlobal>(graph);
-    } else if (algo == "global-no-wait") {
-        es = std::make_unique<AlgorithmParallelGlobalNoWaitV2>(graph);
+    double init_time;
+    {
+        incpwl::ScopedTimer timer;
+        if (algo == "robin") {
+            es = std::make_unique<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
+        } else if (algo == "naive") {
+            es = std::make_unique<AlgorithmParallelNaive>(graph);
+        } else if (algo == "global-naive") {
+            es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
+        } else if (algo == "global") {
+            es = std::make_unique<AlgorithmParallelGlobal>(graph);
+        } else if (algo == "global-no-wait") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV2>(graph);
+        }
+        init_time = timer.elapsedSeconds();
     }
 
     std::mt19937_64 gen{0};
@@ -130,13 +135,20 @@ void benchmark_on_file(int argc, const char** argv) {
         const edge_t m = graph.numberOfEdges();
         const auto requested_switches = switches * m;
         const auto sucessful_switches = es->do_switches(gen, requested_switches);
+        double run_time = timer.elapsedSeconds();
         if (detailed) {
             std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-            std::cout << "Runtime: " << timer.elapsedSeconds() << "s\n";
-            std::cout << "Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
+            std::cout << "Runtime: " << run_time << "s\n";
+            std::cout << "Initialization time: " << init_time << "s \n";
+            std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
+            std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
+            std::cout << "Switches per second + Initialization: " << requested_switches / (run_time + init_time) * 1e-6 << "M \n";
+            std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
+            std::cout << "Successful switches per second + Initialization: " << sucessful_switches / (run_time + init_time) * 1e-6 << "M \n";
         }
-        std::cout << "Runtime for 1m successful switches: " << timer.elapsedSeconds() * (1. * m / sucessful_switches) << "s \n";
-        std::cout << "\n";
+        std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
+        if (detailed) std::cout << "Runtime for 1m successful switches + Initialization: " << (run_time + init_time) * (1. * m / sucessful_switches) << "s \n";
+        std::cout << std::endl;
     }
 }
 
