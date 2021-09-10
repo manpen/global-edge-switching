@@ -79,7 +79,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         size_t successful_switches = 0;
 
         // make sure the hash table contains the edges contained in lazy switches
-        for (auto i=2 * num_switches; i < edge_list_.size(); ++i) {
+        for (auto i = 2 * num_switches; i < edge_list_.size(); ++i) {
             edge_dependencies.announce_erase(edge_list_[i], kNoSwitch);
             new_edge_list_[i] = edge_list_[i];
         }
@@ -110,6 +110,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                 bool collision = false;
 
                 auto check_erase_dependency = [&](auto iter) {
+                    if (collision) return;
                     auto[uninit, erasing_switch, erase_resolved] =
                     iter->get_erase_switch_id_and_resolved();
 
@@ -188,6 +189,11 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             {
 #pragma omp for schedule(static, kBatchSize)
                 for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                    if (kPrefetch && switch_id + kPrefetch < num_switches) {
+                        edge_dependencies.prefetch(edge_list_[2 * (switch_id + kPrefetch)]);
+                        edge_dependencies.prefetch(edge_list_[2 * (switch_id + kPrefetch) + 1]);
+                    }
+
                     edge_t e1 = edge_list_[2 * switch_id];
                     edge_t e2 = edge_list_[2 * switch_id + 1];
 
@@ -203,39 +209,72 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
 
                     auto to_announce = trivial_reject ? kNoSwitch : switch_id;
 
-                    EdgeDependenciesStore::hint_t e1_hint, e2_hint, e3_hint, e4_hint;
+                    edge_list_[2 * switch_id] = encode_iterator(edge_dependencies.announce_erase(e1, to_announce));
+                    edge_list_[2 * switch_id + 1] = encode_iterator(edge_dependencies.announce_erase(e2, to_announce));
 
-                    e1_hint = edge_dependencies.prefetch(e1);
-                    e2_hint = edge_dependencies.prefetch(e2);
-
-                    if (!trivial_reject) {
-                        e3_hint = edge_dependencies.prefetch(e3);
-                        e4_hint = edge_dependencies.prefetch(e4);
-                    }
-
-                    edge_list_[2 * switch_id] = encode_iterator(edge_dependencies.announce_erase(e1_hint, to_announce));
-                    edge_list_[2 * switch_id + 1] = encode_iterator(edge_dependencies.announce_erase(e2_hint, to_announce));
-
-                    if (trivial_reject) {
+                    if (TLX_UNLIKELY(trivial_reject)) {
                         edge_list_[2 * switch_id] = kInvalidEdge;
                         new_edge_list_[2 * switch_id] = e1;
                         new_edge_list_[2 * switch_id + 1] = e2;
                     } else {
-                        new_edge_list_[2 * switch_id] = encode_iterator(
-                            edge_dependencies.announce_insert_if_minimum(e3_hint, switch_id));
-                        new_edge_list_[2 * switch_id + 1] = encode_iterator(
-                            edge_dependencies.announce_insert_if_minimum(e4_hint, switch_id));
+                        new_edge_list_[2 * switch_id] = e3;
+                        new_edge_list_[2 * switch_id + 1] = e4;
+                    }
+                }
 
-                        {
-#ifndef NDEBUG
-                            auto[e1_it, e2_it, e3_it, e4_it] = fetch_iterators(switch_id);
-                            assert(e1_it->edge() == e1);
-                            assert(e2_it->edge() == e2);
-                            assert(e3_it->edge() == e3);
-                            assert(e4_it->edge() == e4);
-#endif
+
+#pragma omp for schedule(static, kBatchSize)
+                for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
+                    if (kPrefetch && switch_id + kPrefetch < num_switches) {
+                        edge_dependencies.prefetch(new_edge_list_[2 * (switch_id + kPrefetch)]);
+                        edge_dependencies.prefetch(new_edge_list_[2 * (switch_id + kPrefetch) + 1]);
+                    }
+
+                    if (edge_list_[2 * switch_id] == kInvalidEdge)
+                        continue; // trivial reject
+
+                    auto e3 = new_edge_list_[2 * switch_id];
+                    auto e4 = new_edge_list_[2 * switch_id + 1];
+
+                    bool reject = false;
+
+                    auto find_or_insert = [&](auto hint) {
+                        const auto it = edge_dependencies.find_or_insert(hint).first;
+
+                        // if our target edge will be deleted after this this switch,
+                        // we have a collision can do not need to announce the target
+                        // insertion
+                        auto[uninit, erasing_switch, erase_resolved] =
+                        it->get_erase_switch_id_and_resolved(std::memory_order_relaxed);
+                        reject |= erase_resolved || (!uninit && (erasing_switch > switch_id));
+
+                        return it;
+                    };
+
+                    auto e3_it = find_or_insert(e3);
+                    if (TLX_LIKELY(!reject)) {
+                        auto e4_it = find_or_insert(e4);
+
+                        if (TLX_LIKELY(!reject)) {
+                            new_edge_list_[2 * switch_id] = encode_iterator(e3_it);
+                            new_edge_list_[2 * switch_id + 1] = encode_iterator(e4_it);
+
+                            e3_it->announce_insert_if_minimum(switch_id);
+                            e4_it->announce_insert_if_minimum(switch_id);
+                            continue;
                         }
                     }
+
+                    assert(reject);
+                    auto e1_it = decode_iterator(edge_list_[2 * switch_id]);
+                    auto e2_it = decode_iterator(edge_list_[2 * switch_id + 1]);
+
+                    e1_it->announce_erase_failed(switch_id);
+                    e2_it->announce_erase_failed(switch_id);
+
+                    new_edge_list_[2 * switch_id] = e1_it->edge(std::memory_order_relaxed);
+                    new_edge_list_[2 * switch_id + 1] = e2_it->edge(std::memory_order_relaxed);
+                    edge_list_[2 * switch_id] = kInvalidEdge;
                 }
 
 #pragma omp for schedule(static, kBatchSize)
