@@ -142,12 +142,12 @@ void benchmark_on_file(int argc, const char** argv) {
             std::cout << "Initialization time: " << init_time << "s \n";
             std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
             std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Switches per second + Initialization: " << requested_switches / (run_time + init_time) * 1e-6 << "M \n";
             std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Successful switches per second + Initialization: " << sucessful_switches / (run_time + init_time) * 1e-6 << "M \n";
+            std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
+            std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
         }
-        std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
-        if (detailed) std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
+        std::cout << "Runtime for 10m successful switches: " << run_time * (1. * switches * m / sucessful_switches) << "s \n";
+        std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (1. * switches * m / sucessful_switches) << "s \n";
         std::cout << std::endl;
     }
 }
