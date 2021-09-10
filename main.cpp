@@ -81,28 +81,16 @@ int main() {
     std::cout << "Nodes: " << graph.numberOfNodes() << " Edges: " << graph.numberOfEdges() << std::endl;
 
     for (int repeat = 0; repeat < 5; ++repeat) {
-        //run_benchmark<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
-        //run_benchmark<AlgorithmAdjacencyVector>("aj-sorted", n, target_m, gen, true);
-        /*run_benchmark<AlgorithmSet<tsl::robin_set<
-            edge_t, edge_hash_crc32, std::equal_to<edge_t>, std::allocator<edge_t>, false, tsl::rh::prime_growth_policy
-        >>>("robin-s", n, target_m, gen);*/
-        //run_benchmark<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
-
-//        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
-
-
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", graph, gen);
 
         std::cout << "\n";
     }
-
-    //run_benchmark<EdgeSwitch_VectorSet<tsl::hopscotch_set<edge_t, edge_hash>>>("hps", n, target_m, gen);
-    //run_benchmark<EdgeSwitch_VectorSet<std::unordered_set<edge_t, edge_hash>>>("std::uset", n, target_m, gen);
 
     return 0;
 }

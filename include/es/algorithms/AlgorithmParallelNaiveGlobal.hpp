@@ -54,25 +54,36 @@ public:
         size_t successful_switches = 0;
         size_t sync_rejects = 0;
 
-        while (true) {
+        shuffle::GeneratorProvider gen_prov(gen);
+
+        for(size_t round=0; round < num_rounds; ++round) {
+            if (round)
+                edge_set_.rebuild();
+
             incpwl::ScopedTimer timer;
 
-            shuffle::GeneratorProvider gen_prov(gen);
             shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
 
             #pragma omp parallel reduction(+:successful_switches,sync_rejects)
             {
                 auto tid = static_cast<unsigned>(omp_get_thread_num());
-                auto gen = gens[tid];
+                auto end = edge_list_.size() - 1;
 
                 #pragma omp for schedule(dynamic,1024)
-                for(size_t i=0; i<edge_list_.size(); i+=2) {
+                for(size_t i=0; i<end; i+=2) {
                     auto e1 = edge_list_[i];
                     auto e2 = edge_list_[i+1];
                     auto [u, v] = to_nodes(e1);
                     auto [x, y] = to_nodes(e2);
 
                     swap_if(e1 < e2, x, y);
+
+                    const edge_t e3 = to_edge(u, x);
+                    const edge_t e4 = to_edge(v, y);
+
+                    bool trivial_reject = (u == x || v == y || e3 == e4 || e1 == e3 || e1 == e4 || e2 == e3 || e2 == e4);
+                    if (trivial_reject)
+                        continue;
 
                     auto ticket3 = edge_set_.insert(u, x, tid);
                     if (!ticket3)
@@ -97,19 +108,10 @@ public:
 
                     ++successful_switches;
                 }
-
-                gens[tid] = gen;
             }
-
-            num_rounds--;
 
             if (logging_)
                 timer.report("round");
-
-            if (!num_rounds)
-                break;
-
-            edge_set_.rebuild();
         }
 
         if (logging_) {
