@@ -138,8 +138,8 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                 check_erase_dependency(e4_it);
 
                 if (collision) {
-                    new_edge_list_[2 * switch_id] = e1_it->edge();
-                    new_edge_list_[2 * switch_id + 1] = e2_it->edge();
+                    new_edge_list_[2 * switch_id] = e1_it->edge(std::memory_order_relaxed);
+                    new_edge_list_[2 * switch_id + 1] = e2_it->edge(std::memory_order_relaxed);
 
                     e1_it->announce_erase_failed(switch_id);
                     e2_it->announce_erase_failed(switch_id);
@@ -153,8 +153,8 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                     return false;
 
                 } else {
-                    new_edge_list_[2 * switch_id] = e3_it->edge();
-                    new_edge_list_[2 * switch_id + 1] = e4_it->edge();
+                    new_edge_list_[2 * switch_id] = e3_it->edge(std::memory_order_relaxed);
+                    new_edge_list_[2 * switch_id + 1] = e4_it->edge(std::memory_order_relaxed);
 
                     e1_it->announce_erase_succeeded(switch_id);
                     e2_it->announce_erase_succeeded(switch_id);
@@ -187,15 +187,28 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             // write out those that had to be delayed; in the next rounds we will only
             // iterate over those!
             {
-#pragma omp for schedule(static, kBatchSize)
+                using hint_pair = std::pair<EdgeDependenciesStore::hint_t, EdgeDependenciesStore::hint_t>;
+                size_t prefetched_switch = std::numeric_limits<size_t>::max();
+                hint_pair prefetched_hints;
+
+                #pragma omp for schedule(static, kBatchSize)
                 for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
-                    if (kPrefetch && switch_id + kPrefetch < num_switches) {
-                        edge_dependencies.prefetch(edge_list_[2 * (switch_id + kPrefetch)]);
-                        edge_dependencies.prefetch(edge_list_[2 * (switch_id + kPrefetch) + 1]);
+                    auto hints_valid = (prefetched_switch == switch_id);
+                    auto hints = prefetched_hints;
+
+                    if (TLX_LIKELY(kPrefetch && switch_id + kPrefetch < num_switches)) {
+                        prefetched_switch = switch_id + kPrefetch;
+                        prefetched_hints = { //
+                            edge_dependencies.prefetch(edge_list_[2 * prefetched_switch]),
+                            edge_dependencies.prefetch(edge_list_[2 * prefetched_switch + 1])};
                     }
 
                     edge_t e1 = edge_list_[2 * switch_id];
                     edge_t e2 = edge_list_[2 * switch_id + 1];
+
+                    if (TLX_UNLIKELY(!hints_valid)) {
+                        hints = {edge_dependencies.prefetch(e1), edge_dependencies.prefetch(e2)};
+                    }
 
                     auto[u, v] = to_nodes(e1);
                     auto[x, y] = to_nodes(e2);
@@ -209,8 +222,8 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
 
                     auto to_announce = trivial_reject ? kNoSwitch : switch_id;
 
-                    edge_list_[2 * switch_id] = encode_iterator(edge_dependencies.announce_erase(e1, to_announce));
-                    edge_list_[2 * switch_id + 1] = encode_iterator(edge_dependencies.announce_erase(e2, to_announce));
+                    edge_list_[2 * switch_id] = encode_iterator(edge_dependencies.announce_erase(hints.first, to_announce));
+                    edge_list_[2 * switch_id + 1] = encode_iterator(edge_dependencies.announce_erase(hints.second, to_announce));
 
                     if (TLX_UNLIKELY(trivial_reject)) {
                         edge_list_[2 * switch_id] = kInvalidEdge;
@@ -222,19 +235,27 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                     }
                 }
 
-
+                prefetched_switch = std::numeric_limits<size_t>::max();
 #pragma omp for schedule(static, kBatchSize)
                 for (size_t switch_id = 0; switch_id < num_switches; ++switch_id) {
-                    if (kPrefetch && switch_id + kPrefetch < num_switches) {
-                        edge_dependencies.prefetch(new_edge_list_[2 * (switch_id + kPrefetch)]);
-                        edge_dependencies.prefetch(new_edge_list_[2 * (switch_id + kPrefetch) + 1]);
+                    auto hints_valid = (prefetched_switch == switch_id);
+                    auto hints = prefetched_hints;
+
+                    if (TLX_LIKELY(kPrefetch && switch_id + kPrefetch < num_switches)) {
+                        prefetched_switch = switch_id + kPrefetch;
+                        prefetched_hints = { //
+                            edge_dependencies.prefetch(new_edge_list_[2 * prefetched_switch]),
+                            edge_dependencies.prefetch(new_edge_list_[2 * prefetched_switch + 1])};
                     }
 
                     if (edge_list_[2 * switch_id] == kInvalidEdge)
                         continue; // trivial reject
 
-                    auto e3 = new_edge_list_[2 * switch_id];
-                    auto e4 = new_edge_list_[2 * switch_id + 1];
+                    if (TLX_UNLIKELY(!hints_valid)) {
+                        hints = { //
+                            edge_dependencies.prefetch(new_edge_list_[2 * switch_id]),
+                            edge_dependencies.prefetch(new_edge_list_[2 * switch_id + 1])};
+                    }
 
                     bool reject = false;
 
@@ -251,9 +272,9 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                         return it;
                     };
 
-                    auto e3_it = find_or_insert(e3);
+                    auto e3_it = find_or_insert(hints.first);
                     if (TLX_LIKELY(!reject)) {
-                        auto e4_it = find_or_insert(e4);
+                        auto e4_it = find_or_insert(hints.second);
 
                         if (TLX_LIKELY(!reject)) {
                             new_edge_list_[2 * switch_id] = encode_iterator(e3_it);
