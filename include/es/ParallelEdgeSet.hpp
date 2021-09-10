@@ -103,6 +103,31 @@ public:
         __atomic_store_n(it, kDeleted, __ATOMIC_RELEASE);
     }
 
+    void erase(node_type a, node_type b) {
+        auto reference_unlocked = build_bucket(a, b);
+        auto reference_payload  = get_payload(reference_unlocked);
+
+        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
+        auto it = data_begin_ + bucket;
+
+        while (true) {
+            auto value = reference_unlocked;
+            auto did_erase = __atomic_compare_exchange_n(it, &value, kDeleted, false,
+                                                         __ATOMIC_RELEASE,
+                                                         __ATOMIC_CONSUME);
+            if (did_erase)
+                return;
+
+            assert(value != kEmpty);
+
+            if (get_payload(value) == reference_payload) continue;
+
+            ++it;
+            if (TLX_UNLIKELY(it == data_end_))
+                it = data_begin_;
+        }
+    }
+
     // rebuilding
     void rebuild() {
         auto size = storage_.size() - 1;
