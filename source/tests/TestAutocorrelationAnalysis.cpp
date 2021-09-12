@@ -48,7 +48,7 @@ int main() {
     std::mt19937_64 gen(seed);
     const size_t min_snapshots = 30;
     const std::vector<size_t> power_of_twos_to_256 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20};
-    TimeSeries<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, power_of_twos_to_256, min_snapshots, "Robin", "PLD-2.5", graphseed, seed, 30);
+    TimeSeries<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, power_of_twos_to_256, min_snapshots, "Robin", "PLD-2.5", graphseed, seed, 1, 30);
 
     return 0;
 }
