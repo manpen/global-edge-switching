@@ -229,17 +229,6 @@ public:
             }
         }
 
-        // compute number of considered snapshots per thinning
-        std::vector<size_t> snapshots_per_thinning;
-        for (const auto thinning : thinnings) {
-            size_t considered_snapshots = 0;
-            for (size_t sid = 0; (sid < snapshots.size()) && (considered_snapshots < max_snapshots_per_thinning); sid++) {
-                const auto snapshot = snapshots[sid];
-                if (snapshot == (considered_snapshots + 1) * thinning) considered_snapshots++;
-            }
-            snapshots_per_thinning.emplace_back(considered_snapshots);
-        }
-
         // combine parallely computed number of independent edges for each thinning parameter
         std::cout << "type,algo,graphlabel,n,m,chainlength,min snapshots/thinning,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
         std::vector<thinning_counter_t> final_counters;
@@ -263,7 +252,7 @@ public:
                       << max_snapshots_per_thinning << ","
                       << switches_per_edge << ","
                       << thinnings[i] << ","
-                      << snapshots_per_thinning[i] << ","
+                      << thinning_snapshots[i].size() << ","
                       << t.num_independent << ","
                       << t.num_non_independent << ","
                       << t.num_none_independent << ","
