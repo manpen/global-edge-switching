@@ -9,3 +9,6 @@ target_link_libraries(TestAlgorithmParallelGlobal libedgeswitch)
 
 add_executable(TestLinearCongruentialMap TestLinearCongruentialMap.cpp)
 target_link_libraries(TestLinearCongruentialMap libedgeswitch)
+
+add_executable(TestAutocorrelationAnalysis TestAutocorrelationAnalysis.cpp)
+target_link_libraries(TestAutocorrelationAnalysis libedgeswitch)

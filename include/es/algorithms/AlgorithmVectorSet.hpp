@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <google/dense_hash_set>
+#include <shuffle/random/RandomBits.hpp>
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <tlx/container/btree_set.hpp>
 
@@ -74,6 +75,10 @@ public:
             result.addEdge(u, v);
         }
         return result;
+    }
+
+    const std::vector<edge_t>& get_edgelist() const {
+        return edge_list_;
     }
 
 private:
