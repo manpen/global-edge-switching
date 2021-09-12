@@ -36,7 +36,6 @@ size_t kgv(const std::vector<size_t>& v) {
 }
 
 struct thinning_counter_t {
-    size_t num_none_non_independent = 0;
     size_t num_none_independent = 0;
     size_t num_non_independent = 0;
     size_t num_independent = 0;
@@ -44,7 +43,6 @@ struct thinning_counter_t {
 
     void update(bool none, double delta_BIC) {
         num_none_independent += (none && delta_BIC < 0);
-        num_none_non_independent += (none && delta_BIC >= 0);
         num_independent += (!none && delta_BIC < 0);
         num_non_independent += (!none && delta_BIC >= 0);
     }
@@ -137,7 +135,9 @@ public:
                 << "# m " << m << "\n"
                 << "# chain length " << min_chain_length << "\n"
                 << "# individual snapshots " << s << "\n"
-                << "# number of snapshot edge bits " << m_snapshots_edges.size()
+                << "# number of snapshot edge bits " << m_snapshots_edges.size() << "\n"
+                << "# has [node 0: " << (graph.hasNode(0) ? "y]" : "n]") << "\n"
+                << "# has [node n: " << (graph.hasNode(n) ? "y]" : "n]")
                 << std::endl;
 
         // perform the switchings and add edges to time series
@@ -240,10 +240,12 @@ public:
             thinning_counter_t t;
             for (int j = 0; j < omp_get_max_threads(); j++) {
                 t.num_none_independent += thinning_counters[j][i].num_none_independent;
-                t.num_none_non_independent += thinning_counters[j][i].num_none_non_independent;
                 t.num_independent += thinning_counters[j][i].num_independent;
                 t.num_non_independent += thinning_counters[j][i].num_non_independent;
             }
+            t.num_none_independent -= (graph.hasNode(0)) * (n - 1);
+            t.num_none_independent -= (graph.hasNode(n)) * (n - 1);
+
             std::cout << "AUTOCORR,"
             << algo_label << ","
             << graph_label << ","
@@ -257,7 +259,6 @@ public:
             << t.num_independent << ","
             << t.num_non_independent << ","
             << t.num_none_independent << ","
-            << t.num_none_non_independent << ","
             << graphseed << ","
             << seed << std::endl;
         }
