@@ -6,3 +6,6 @@ target_link_libraries(TestParallelEdgeSet libedgeswitch)
 
 add_executable(TestAlgorithmParallelGlobal TestAlgorithmParallelGlobal.cpp)
 target_link_libraries(TestAlgorithmParallelGlobal libedgeswitch)
+
+add_executable(TestAutocorrelationAnalysis TestAutocorrelationAnalysis.cpp)
+target_link_libraries(TestAutocorrelationAnalysis libedgeswitch)
