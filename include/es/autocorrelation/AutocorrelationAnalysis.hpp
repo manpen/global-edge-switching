@@ -166,6 +166,18 @@ public:
             curr_graph = es.get_graph();
         }
 
+        // compute snapshots to consider per thinning
+        std::vector<std::vector<size_t>> thinning_snapshots(thinnings.size());
+        for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
+            const auto thinning = thinnings[thinningid];
+            for (size_t sid = 0; sid < snapshots.size() && (thinning_snapshots[thinningid].size() < max_snapshots_per_thinning); sid++) {
+                const auto snapshot = snapshots[sid];
+                if (snapshot == (thinning_snapshots[thinningid].size() + 1) * thinning) {
+                    thinning_snapshots[thinningid].push_back(sid);
+                }
+            }
+        }
+
         // compute independence rates
         const auto pus = omp_get_max_threads();
         omp_set_num_threads(pus);
@@ -202,16 +214,11 @@ public:
                     bool edge_exists = graph.hasEdge(u, v) || graph.hasEdge(v, u);
                     transition_counter_t edge_transitions{0., 0., 0., 0.};
 
-                    size_t considered_snapshots = 0;
-                    for (size_t sid = 0; (sid < snapshots.size()) && (considered_snapshots < max_snapshots_per_thinning); sid++) {
+                    for (const auto sid : thinning_snapshots[thinningid]) {
                         const auto snapshot = snapshots[sid];
-                        if (snapshot == (considered_snapshots + 1) * thinning) {
-                            assert(eb_beg + sid < eb_end);
-                            edge_transitions.update(edge_exists, m_snapshots_edges[eb_beg + sid]);
-                            edge_exists = m_snapshots_edges[eb_beg + sid];
-
-                            considered_snapshots++;
-                        }
+                        assert(eb_beg + sid < eb_end);
+                        edge_transitions.update(edge_exists, m_snapshots_edges[eb_beg + sid]);
+                        edge_exists = m_snapshots_edges[eb_beg + sid];
                     }
 
                     const double delta_BIC = edge_transitions.compute_delta_BIC();
