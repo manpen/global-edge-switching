@@ -102,7 +102,7 @@ public:
     TimeSeries(const NetworKit::Graph& graph,
                Gen& gen,
                const std::vector<size_t>& thinnings,
-               size_t min_snapshots,
+               size_t min_snapshots_per_thinning,
                const std::string& algo_label,
                const std::string& graph_label,
                Graphseed& graphseed,
@@ -113,7 +113,7 @@ public:
               m_num_nodes(graph.numberOfNodes())
     {
         const auto thinnings_kgv = kgv(thinnings);
-        const auto min_chain_length = std::max(thinnings_kgv, min_snapshots / (thinnings_kgv / thinnings.back()) * thinnings_kgv);
+        const auto min_chain_length = std::max(thinnings_kgv, min_snapshots_per_thinning / (thinnings_kgv / thinnings.back()) * thinnings_kgv);
         std::set<size_t> snapshots_set;
         for (const auto thinning : thinnings) {
             for (size_t i = 0; (i < min_chain_length / thinning) && (i < max_snapshots_per_thinning); i++) {
@@ -241,7 +241,7 @@ public:
         }
 
         // combine parallely computed number of independent edges for each thinning parameter
-        std::cout << "type,algo,graphlabel,n,m,chainlength,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
+        std::cout << "type,algo,graphlabel,n,m,chainlength,min snapshots/thinning,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
         std::vector<thinning_counter_t> final_counters;
         for (size_t i = 0; i < thinnings.size(); i++) {
             thinning_counter_t t;
@@ -254,20 +254,21 @@ public:
             t.num_none_independent -= (graph.hasNode(n)) * (n - 1);
 
             std::cout << "AUTOCORR,"
-            << algo_label << ","
-            << graph_label << ","
-            << n << ","
-            << m << ","
-            << min_chain_length << ","
-            << max_snapshots_per_thinning << ","
-            << switches_per_edge << ","
-            << thinnings[i] << ","
-            << snapshots_per_thinning[i] << ","
-            << t.num_independent << ","
-            << t.num_non_independent << ","
-            << t.num_none_independent << ","
-            << graphseed << ","
-            << seed << std::endl;
+                      << algo_label << ","
+                      << graph_label << ","
+                      << n << ","
+                      << m << ","
+                      << min_chain_length << ","
+                      << min_snapshots_per_thinning << ","
+                      << max_snapshots_per_thinning << ","
+                      << switches_per_edge << ","
+                      << thinnings[i] << ","
+                      << snapshots_per_thinning[i] << ","
+                      << t.num_independent << ","
+                      << t.num_non_independent << ","
+                      << t.num_none_independent << ","
+                      << graphseed << ","
+                      << seed << std::endl;
         }
     }
 
