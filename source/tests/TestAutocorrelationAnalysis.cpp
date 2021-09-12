@@ -46,9 +46,9 @@ int main() {
     std::random_device rd;
     auto seed = rd();
     std::mt19937_64 gen(seed);
-    const size_t min_snapshots = 10;
-    const std::vector<size_t> power_of_twos_to_256 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20};
-    TimeSeries<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, power_of_twos_to_256, min_snapshots, "Robin", "PLD-2.5", graphseed, seed, 1, 200);
+    const size_t min_snapshots = 100;
+    const std::vector<size_t> thinnings = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20, 100};
+    TimeSeries<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, thinnings, min_snapshots, "Robin", "PLD-2.01", graphseed, seed, 1, 200);
 
     return 0;
 }
