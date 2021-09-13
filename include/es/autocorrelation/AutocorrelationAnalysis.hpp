@@ -94,21 +94,23 @@ struct transition_counter_t {
 
 
 template <typename Algo>
-class TimeSeries {
+class AutocorrelationAnalysis {
     using edge_series_t = tsl::robin_set<es::edge_t, es::edge_hash_crc32>;
 
 public:
+    AutocorrelationAnalysis() = delete;
+
     template <typename Gen, typename Graphseed, typename Seed>
-    TimeSeries(const NetworKit::Graph& graph,
-               Gen& gen,
-               const std::vector<size_t>& thinnings,
-               size_t min_snapshots_per_thinning,
-               const std::string& algo_label,
-               const std::string& graph_label,
-               Graphseed& graphseed,
-               Seed& seed,
-               size_t switches_per_edge = 1,
-               size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max())
+    AutocorrelationAnalysis(const NetworKit::Graph& graph,
+                            Gen& gen,
+                            const std::vector<size_t>& thinnings,
+                            size_t min_snapshots_per_thinning,
+                            const std::string& algo_label,
+                            const std::string& graph_label,
+                            Graphseed& graphseed,
+                            Seed& seed,
+                            size_t switches_per_edge = 1,
+                            size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max())
             : curr_graph(graph),
               m_num_nodes(graph.numberOfNodes())
     {
@@ -233,7 +235,6 @@ public:
         }
 
         // combine parallely computed number of independent edges for each thinning parameter
-        std::cout << "type,algo,graphlabel,n,m,chainlength,min snapshots/thinning,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,successful switches,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
         std::vector<thinning_counter_t> final_counters;
         for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
             size_t thinning_successful_switches = 0;
