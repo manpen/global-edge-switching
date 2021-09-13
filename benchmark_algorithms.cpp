@@ -22,8 +22,7 @@
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -125,7 +124,7 @@ void benchmark_on_file(int argc, const char** argv) {
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {
-            es = std::make_unique<AlgorithmParallelGlobalNoWaitV2>(graph);
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4>(graph);
         }
         init_time = timer.elapsedSeconds();
     }
