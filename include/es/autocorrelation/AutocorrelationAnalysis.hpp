@@ -125,7 +125,7 @@ public:
         const auto s = snapshots_set.size();
         std::vector<size_t> snapshots;
         std::copy(snapshots_set.begin(), snapshots_set.end(), std::back_inserter(snapshots));
-        m_snapshots_edges.resize(s*(n + 1)*n/2);
+        m_snapshots_edges.resize(snapshots.size()*(n + 1)*n/2);
 
         std::cout
                 << "# processing:\n"
@@ -134,7 +134,7 @@ public:
                 << "# n " << n << "\n"
                 << "# m " << m << "\n"
                 << "# chain length " << min_chain_length << "\n"
-                << "# individual snapshots " << s << "\n"
+                << "# individual snapshots " << snapshots.size() << "\n"
                 << "# number of snapshot edge bits " << m_snapshots_edges.size() << "\n"
                 << "# has [node 0: " << (graph.hasNode(0) ? "y]" : "n]") << "\n"
                 << "# has [node n: " << (graph.hasNode(n) ? "y]" : "n]")
@@ -142,6 +142,7 @@ public:
 
         // perform the switchings and add edges to time series
         std::cout << "# performing switches" << std::endl;
+        std::vector<size_t> successful_switches(s);
         size_t last_snapshot = 0;
         for (size_t snapshotid = 0; snapshotid < s; snapshotid++) {
             const auto snapshot = snapshots[snapshotid];
@@ -151,7 +152,7 @@ public:
             const auto requested_switches = factor * switches_per_edge * graph.numberOfEdges();
 
             Algo es(curr_graph);
-            const auto successful_switches = es.do_switches(gen, requested_switches);
+            successful_switches[snapshotid] = es.do_switches(gen, requested_switches);
             const auto &edgelist = es.get_edgelist();
 
             for (size_t eid = 0; eid < edgelist.size(); eid++) {
@@ -230,14 +231,18 @@ public:
         }
 
         // combine parallely computed number of independent edges for each thinning parameter
-        std::cout << "type,algo,graphlabel,n,m,chainlength,min snapshots/thinning,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
+        std::cout << "type,algo,graphlabel,n,m,chainlength,min snapshots/thinning,max snapshots/thinning,switches/edge,thinning,snapshots/thinning,successful switches,independent edges,non-independent edges,independent none-edges,non-independent none-edges,graphseed,seed" << std::endl;
         std::vector<thinning_counter_t> final_counters;
-        for (size_t i = 0; i < thinnings.size(); i++) {
+        for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
+            size_t thinning_successful_switches = 0;
+            for (const auto sid : thinning_snapshots[thinningid])
+                thinning_successful_switches += successful_switches[sid];
+
             thinning_counter_t t;
             for (int j = 0; j < omp_get_max_threads(); j++) {
-                t.num_none_independent += thinning_counters[j][i].num_none_independent;
-                t.num_independent += thinning_counters[j][i].num_independent;
-                t.num_non_independent += thinning_counters[j][i].num_non_independent;
+                t.num_none_independent += thinning_counters[j][thinningid].num_none_independent;
+                t.num_independent += thinning_counters[j][thinningid].num_independent;
+                t.num_non_independent += thinning_counters[j][thinningid].num_non_independent;
             }
             t.num_none_independent -= (graph.hasNode(0)) * (n - 1);
             t.num_none_independent -= (graph.hasNode(n)) * (n - 1);
@@ -251,8 +256,9 @@ public:
                       << min_snapshots_per_thinning << ","
                       << max_snapshots_per_thinning << ","
                       << switches_per_edge << ","
-                      << thinnings[i] << ","
-                      << thinning_snapshots[i].size() << ","
+                      << thinnings[thinningid] << ","
+                      << thinning_snapshots[thinningid].size() << ","
+                      << thinning_successful_switches << ","
                       << t.num_independent << ","
                       << t.num_non_independent << ","
                       << t.num_none_independent << ","
