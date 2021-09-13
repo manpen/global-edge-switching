@@ -1,0 +1,35 @@
+
+executable="$1"
+
+graph_dir="initial-graphs"
+if ! test -d "$graph_dir" ; then
+ mkdir "$graph_dir"
+fi
+if ! test -d "$graph_dir/random" ; then
+ mkdir "$graph_dir/random"
+fi
+if ! test -d "$graph_dir/powerlaw" ; then
+ mkdir "$graph_dir/powerlaw"
+fi
+
+# random-graphs
+for n in 16 20 24 ; do
+ for d in 2 5 10 ; do
+  for i in {1..5} ; do
+   output_file="$graph_dir/random/random_""$n""_""$d""_""$i"
+   "$executable" generate-random "$output_file" "$n" "$d"
+  done
+ done
+done
+
+# powerlaw-graphs
+for n in 16 20 24 ; do
+ for g in "3" "2.5" "2.2" "2.1" "2" ; do
+  for d in 1 2 5 ; do
+   for i in {1..10} ; do
+    output_file="$graph_dir/powerlaw/powerlaw_""$n""_""$g""_""$d""_""$i"
+    "$executable" generate-powerlaw "$output_file" "$n" "$g" "$d"
+   done
+  done
+ done
+done
