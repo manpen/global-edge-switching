@@ -1,0 +1,44 @@
+
+benchmark_executable="$1"
+
+bench_dir="benchmark-results"
+if ! test -d "$bench_dir"
+then
+ mkdir "$bench_dir"
+fi
+if ! test -d "$bench_dir/random" ; then
+ mkdir "$bench_dir/random"
+fi
+if ! test -d "$bench_dir/powerlaw" ; then
+ mkdir "$bench_dir/powerlaw"
+fi
+
+spe=10
+repeats=5
+
+for algo in "robin" "naive" "global-naive" "global" "global-no-wait" ; do
+ for p in 1 2 4 6 8 10 12 14 16 ; do
+  if test "$algo" == "robin" ; then
+   if test "$p" != 1 ; then
+    break
+   fi
+  fi
+
+  # random-graphs
+  graph_dir="initial-graphs/random"
+  for graph in "$graph_dir"/* ; do
+   graph_name="$(basename $graph)"
+   bench_file="$bench_dir"/random/"$graph_name""_""$algo""_""$spe""_""$p"
+   "$benchmark_executable" bench "$graph" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  done
+
+  # powerlaw-graphs
+  graph_dir="initial-graphs/powerlaw"
+  for graph in "$graph_dir"/* ; do
+   graph_name="$(basename $graph)"
+   bench_file="$bench_dir"/powerlaw/"$graph_name""_""$algo""_""$spe""_""$p"
+   "$benchmark_executable" bench "$graph" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+  done
+ done
+done
+
