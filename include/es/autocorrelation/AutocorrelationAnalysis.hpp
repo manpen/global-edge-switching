@@ -113,7 +113,9 @@ public:
               m_num_nodes(graph.numberOfNodes())
     {
         const auto thinnings_kgv = kgv(thinnings);
-        const auto min_chain_length = std::max(thinnings_kgv, min_snapshots_per_thinning / (thinnings_kgv / thinnings.back()) * thinnings_kgv);
+        const auto min_snapshots_filler = min_snapshots_per_thinning / (thinnings_kgv / thinnings.back())
+                                          + (min_snapshots_per_thinning % (thinnings_kgv / thinnings.back()) != 0);
+        const auto min_chain_length = std::max(thinnings_kgv, min_snapshots_filler * thinnings_kgv);
         std::set<size_t> snapshots_set;
         for (const auto thinning : thinnings) {
             for (size_t i = 0; (i < min_chain_length / thinning) && (i < max_snapshots_per_thinning); i++) {
@@ -235,7 +237,7 @@ public:
         std::vector<thinning_counter_t> final_counters;
         for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
             size_t thinning_successful_switches = 0;
-            for (const auto sid : thinning_snapshots[thinningid])
+            for (size_t sid = 0; sid <= thinning_snapshots[thinningid].back(); sid++)
                 thinning_successful_switches += successful_switches[sid];
 
             thinning_counter_t t;
