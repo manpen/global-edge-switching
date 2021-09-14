@@ -30,7 +30,7 @@ struct autocorrelation_config_t {
 template <typename Algo>
 void run_realworld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned seed) {
     const size_t fake_graphseed = 0;
-    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.max_snapshots);
+    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.switches_per_edge, c.max_snapshots);
 }
 
 int main(int argc, char *argv[]) {
@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
     if (!cp.process(argc, argv)) {
         return -1;
     }
+    
+    std::cout << "# successfully processed command line arguments" << std::endl;
 
     std::vector<size_t> thinnings;
     thinnings.reserve(thinnings_str.size());
@@ -78,8 +80,11 @@ int main(int argc, char *argv[]) {
         thinnings.push_back(thinning);
     }
 
-    NetworKit::EdgeListReader edgelist_reader = NetworKit::EdgeListReader(',', 1, "%", true);
+    NetworKit::EdgeListReader edgelist_reader = NetworKit::EdgeListReader(' ', 0, "%", true);
     NetworKit::Graph g = edgelist_reader.read(input_fn);
+    std::cout << "# successfully loaded edgelist file " << input_fn << std::endl;
+
+    
     const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge);
 
     // run autocorrelation analysis
@@ -101,6 +106,7 @@ int main(int argc, char *argv[]) {
               << "graphseed,"
               << "seed" << std::endl;
     for (unsigned run = 0; run < runs; run++) {
+        std::cout << "run " << run << std::endl;
         std::mt19937_64 gen(seed);
 
         switch (algo) {
