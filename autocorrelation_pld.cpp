@@ -4,6 +4,8 @@
 #include <networkit/graph/Graph.hpp>
 #include <networkit/io/EdgeListReader.hpp>
 #include <es/autocorrelation/AutocorrelationAnalysis.hpp>
+#include <es/algorithms/AlgorithmParallelGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
@@ -41,7 +43,7 @@ int main(int argc, char *argv[]) {
     cp.set_description("Autocorrelation Analysis");
 
     unsigned algo = 0;
-    cp.add_param_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global, 3=GlobalNoWait"); // TODO add Global, add GlobalNoWait
+    cp.add_param_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global");
 
     unsigned runs = 0;
     cp.add_param_unsigned("runs", runs, "Runs");
@@ -121,22 +123,24 @@ int main(int argc, char *argv[]) {
               << "successful switches,"
               << "independent edges,"
               << "non-independent edges,"
+              << "independent original edges,"
+              << "non-independent original edges,"
               << "independent none-edges,"
               << "non-independent none-edges,"
               << "graphseed,"
               << "seed" << std::endl;
     for (unsigned run = 0; run < runs; run++) {
-        std::cout << "run " << run << std::endl;
+        std::cout << "# run " << run << std::endl;
         std::mt19937_64 gen(seed);
 
         switch (algo) {
             case 1:
                 run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
-                        (config, gen, "ES-Robin", graphseed, seed);
+                (config, gen, "ES-Robin", graphseed, seed);
                 break;
             case 2:
-                break;
-            case 3:
+                run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
+                        (config, gen, "ES-Global-NoWait-V4", graphseed, seed);
                 break;
             default:
                 break;

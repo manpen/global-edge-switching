@@ -17,7 +17,7 @@ public:
         : input_graph_(graph)
     {}
 
-    virtual size_t do_switches(std::mt19937_64 &gen, size_t num_switches) = 0;
+    virtual size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation) = 0;
 
     virtual NetworKit::Graph get_graph() = 0;
 
