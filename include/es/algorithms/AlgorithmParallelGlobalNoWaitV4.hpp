@@ -29,7 +29,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+    size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = false) {
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
@@ -49,7 +49,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                 num_switches_in_round -= num_lazy;
             }
 
-            successful_switches += do_round(num_switches_in_round);
+            successful_switches += do_round(num_switches_in_round, autocorrelation);
 
             new_edge_list_.swap(edge_list_);
 
@@ -67,7 +67,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         return successful_switches;
     }
 
-    size_t do_round(size_t num_switches, bool logging = false) {
+    size_t do_round(size_t num_switches, bool autocorrelation, bool logging = false) {
         const size_t kNoSwitch = EdgeDependenciesStore::kLastSwitch;
 
 #ifdef NDEBUG
@@ -86,6 +86,8 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
 
         std::atomic<bool> all_done = true;
         constexpr auto kInvalidEdge = std::numeric_limits<edge_t>::max();
+
+        if (autocorrelation) omp_set_num_threads(1);
 
 #pragma omp parallel reduction(+ : successful_switches)
         {
@@ -353,7 +355,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         return successful_switches;
     }
 
-    void do_switches(const std::vector<size_t> &rho, size_t num_threads) {
+    void do_switches(const std::vector<size_t> &rho, size_t num_threads, bool autocorrelation = false) {
         assert(!edge_list_.empty());
         assert(!rho.empty());
 
@@ -364,7 +366,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         }
         edge_list_ = std::move(edge_list_permuted);
 
-        do_round(0);
+        do_round(0, autocorrelation);
     }
 
     NetworKit::Graph get_graph() override {
@@ -383,6 +385,10 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             result.addEdge(u, v);
         }
         return result;
+    }
+
+    const std::vector<edge_t>& get_edgelist() const {
+        return edge_list_;
     }
 
 private:

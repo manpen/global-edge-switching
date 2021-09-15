@@ -38,11 +38,15 @@ size_t kgv(const std::vector<size_t>& v) {
 struct thinning_counter_t {
     size_t num_non_independent = 0;
     size_t num_independent = 0;
+    size_t num_orig_non_independent = 0;
+    size_t num_orig_independent = 0;
     thinning_counter_t() = default;
 
-    void update(bool none, double delta_BIC) {
+    void update(bool none, bool original, double delta_BIC) {
         num_independent += (!none && delta_BIC < 0);
         num_non_independent += (!none && delta_BIC >= 0);
+        num_orig_independent += (!none && original && delta_BIC < 0);
+        num_orig_non_independent += (!none && original && delta_BIC >= 0);
     }
 };
 
@@ -131,6 +135,9 @@ public:
         std::copy(snapshots_set.begin(), snapshots_set.end(), std::back_inserter(snapshots));
         m_snapshots_edges.resize(snapshots.size()*(n + 1)*n/2);
 
+        tsl::robin_set<es::edge_t, es::edge_hash_crc32> input_edges;
+        graph.forEdges([&](NetworKit::node u, NetworKit::node v) { input_edges.insert(es::to_edge(u, v)); });
+
         std::cout
                 << "# processing:\n"
                 << "# algo " << algo_label << "\n"
@@ -157,7 +164,7 @@ public:
             const auto requested_switches = factor * switches_per_edge * graph.numberOfEdges();
 
             Algo es(curr_graph);
-            successful_switches[snapshotid] = es.do_switches(gen, requested_switches);
+            successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
             const auto &edgelist = es.get_edgelist();
 
             for (size_t eid = 0; eid < edgelist.size(); eid++) {
@@ -196,6 +203,7 @@ public:
         std::cout << "# processing time series [pus = " << pus << "]" << std::endl;
 #pragma omp parallel
         {
+            const es::edge_hash_crc32 h;
             const auto pu = omp_get_thread_num();
 
             // compute begin and end for this pu
@@ -217,7 +225,8 @@ public:
                 const auto [u, v] = es::to_nodes(curr_edge);
                 for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
                     const auto thinning = thinnings[thinningid];
-                    bool edge_exists = graph.hasEdge(u, v) || graph.hasEdge(v, u);
+                    const bool edge_is_original = (input_edges.find(curr_edge, h(curr_edge)) != input_edges.end());
+                    bool edge_exists = edge_is_original;
                     transition_counter_t edge_transitions{0., 0., 0., 0.};
 
                     for (const auto sid : thinning_snapshots[thinningid]) {
@@ -228,7 +237,7 @@ public:
                     }
 
                     const double delta_BIC = edge_transitions.compute_delta_BIC();
-                    thinning_counters[pu][thinningid].update(edge_transitions.is_none(), delta_BIC);
+                    thinning_counters[pu][thinningid].update(edge_transitions.is_none(), edge_is_original, delta_BIC);
                 }
 
                 curr_edge = get_next_edge(curr_edge);
@@ -246,6 +255,8 @@ public:
             for (int j = 0; j < omp_get_max_threads(); j++) {
                 t.num_non_independent += thinning_counters[j][thinningid].num_non_independent;
                 t.num_independent += thinning_counters[j][thinningid].num_independent;
+                t.num_orig_non_independent += thinning_counters[j][thinningid].num_orig_non_independent;
+                t.num_orig_independent += thinning_counters[j][thinningid].num_orig_independent;
             }
 
             std::cout << "AUTOCORR,"
@@ -262,6 +273,8 @@ public:
                       << thinning_successful_switches << ","
                       << t.num_independent << ","
                       << t.num_non_independent << ","
+                      << t.num_orig_independent << ","
+                      << t.num_orig_non_independent << ","
                       << (true_n)*(true_n - 1)/ 2 - t.num_independent - t.num_non_independent << ","
                       << graphseed << ","
                       << seed << std::endl;

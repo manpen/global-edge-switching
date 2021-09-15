@@ -3,8 +3,8 @@
 #include <random>
 #include <vector>
 
-#include <google/dense_hash_set>
-#include <shuffle/random/RandomBits.hpp>
+//#include <google/dense_hash_set>
+#include <es/RandomBits.hpp>
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <tlx/container/btree_set.hpp>
 
@@ -25,7 +25,7 @@ public:
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+    size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = false) {
         assert(!edge_list_.empty());
         std::uniform_int_distribution<size_t> distr{0, edge_list_.size() - 1};
         shuffle::RandomBits fair_coin;
@@ -90,11 +90,12 @@ private:
         hs.reserve(num_edges);
     }
 
+    /*
     template<class Value, class HashFcn, class EqualKey, class Alloc>
     void prepare_hashset(google::dense_hash_set<Value, HashFcn, EqualKey, Alloc> &hs, size_t) {
         hs.set_empty_key(std::numeric_limits<edge_t>::max());
         hs.set_deleted_key(std::numeric_limits<edge_t>::max() - 1);
-    }
+    }*/
 
     void prepare_hashset(tlx::btree_set<long unsigned int> &hs, size_t num_edges) {
     }
