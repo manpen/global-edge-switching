@@ -53,5 +53,8 @@ target_link_libraries(benchmark_algorithms PRIVATE libedgeswitch)
 add_executable(autocorrelation_realworld autocorrelation_realworld.cpp)
 target_link_libraries(autocorrelation_realworld PRIVATE libedgeswitch)
 
+add_executable(autocorrelation_pld autocorrelation_pld.cpp)
+target_link_libraries(autocorrelation_pld PRIVATE libedgeswitch)
+
 enable_testing()
 add_subdirectory(source/tests)
