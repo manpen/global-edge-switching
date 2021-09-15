@@ -37,6 +37,9 @@ int main(int argc, char *argv[]) {
     tlx::CmdlineParser cp;
     cp.set_description("Autocorrelation Analysis");
 
+    unsigned algo = 0;
+    cp.add_param_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global, 3=GlobalNoWait"); // TODO add Global, add GlobalNoWait
+
     std::string input_fn;
     cp.add_param_string("input", input_fn, "Input Graph File");
 
@@ -52,11 +55,8 @@ int main(int argc, char *argv[]) {
     unsigned max_snapshots;
     cp.add_unsigned("maxsnaps", max_snapshots, "Maximum Number of Snapshots / Thinning");
 
-    unsigned switches_per_edge;
+    unsigned switches_per_edge = 1;
     cp.add_unsigned("switchesperedge", switches_per_edge, "Switches / Edge");
-
-    unsigned algo = 0;
-    cp.add_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global, 3=GlobalNoWait"); // TODO add Global, add GlobalNoWait
 
     std::vector<std::string> thinnings_str;
     cp.add_param_stringlist("thinnings", thinnings_str, "Thinning Values e.g. --thinnings 1 2 3 4");

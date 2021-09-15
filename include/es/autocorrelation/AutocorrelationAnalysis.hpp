@@ -36,13 +36,11 @@ size_t kgv(const std::vector<size_t>& v) {
 }
 
 struct thinning_counter_t {
-    size_t num_none_independent = 0;
     size_t num_non_independent = 0;
     size_t num_independent = 0;
     thinning_counter_t() = default;
 
     void update(bool none, double delta_BIC) {
-        num_none_independent += (none && delta_BIC < 0);
         num_independent += (!none && delta_BIC < 0);
         num_non_independent += (!none && delta_BIC >= 0);
     }
@@ -127,6 +125,8 @@ public:
         const auto n = graph.numberOfNodes();
         const auto m = graph.numberOfEdges();
         const auto s = snapshots_set.size();
+        NetworKit::node true_n = 0;
+        for (NetworKit::node node = 0; node < n; node++) true_n += (graph.degree(node) > 0);
         std::vector<size_t> snapshots;
         std::copy(snapshots_set.begin(), snapshots_set.end(), std::back_inserter(snapshots));
         m_snapshots_edges.resize(snapshots.size()*(n + 1)*n/2);
@@ -136,6 +136,7 @@ public:
                 << "# algo " << algo_label << "\n"
                 << "# graph " << graph_label << "\n"
                 << "# n " << n << "\n"
+                << "# true n " << true_n << "\n"
                 << "# m " << m << "\n"
                 << "# chain length " << min_chain_length << "\n"
                 << "# individual snapshots " << snapshots.size() << "\n"
@@ -243,12 +244,9 @@ public:
 
             thinning_counter_t t;
             for (int j = 0; j < omp_get_max_threads(); j++) {
-                t.num_none_independent += thinning_counters[j][thinningid].num_none_independent;
-                t.num_independent += thinning_counters[j][thinningid].num_independent;
                 t.num_non_independent += thinning_counters[j][thinningid].num_non_independent;
+                t.num_independent += thinning_counters[j][thinningid].num_independent;
             }
-            t.num_none_independent -= (graph.hasNode(0)) * (n - 1);
-            t.num_none_independent -= (graph.hasNode(n)) * (n - 1);
 
             std::cout << "AUTOCORR,"
                       << algo_label << ","
@@ -264,7 +262,7 @@ public:
                       << thinning_successful_switches << ","
                       << t.num_independent << ","
                       << t.num_non_independent << ","
-                      << t.num_none_independent << ","
+                      << (true_n)*(true_n - 1)/ 2 - t.num_independent - t.num_non_independent << ","
                       << graphseed << ","
                       << seed << std::endl;
         }
