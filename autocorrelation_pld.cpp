@@ -1,9 +1,13 @@
 #include <iostream>
+#include <string.h>
 #include <tlx/cmdline_parser.hpp>
 #include <networkit/graph/Graph.hpp>
 #include <networkit/io/EdgeListReader.hpp>
 #include <es/autocorrelation/AutocorrelationAnalysis.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
+#include <networkit/generators/HavelHakimiGenerator.hpp>
+#include <networkit/generators/PowerlawDegreeSequence.hpp>
+#include <networkit/auxiliary/Random.hpp>
 
 struct autocorrelation_config_t {
     const NetworKit::Graph& g;
@@ -20,28 +24,33 @@ struct autocorrelation_config_t {
                              const std::string& graphlabel_,
                              size_t switches_per_edge_)
             : g(g_),
-            thinnings(thinnings_),
-            min_snapshots(min_snapshots_),
-            max_snapshots(max_snapshots_),
-            graphlabel(graphlabel_),
-            switches_per_edge(switches_per_edge_) { }
+              thinnings(thinnings_),
+              min_snapshots(min_snapshots_),
+              max_snapshots(max_snapshots_),
+              graphlabel(graphlabel_),
+              switches_per_edge(switches_per_edge_) { }
 };
 
 template <typename Algo>
-void run_realworld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned seed) {
-    const size_t fake_graphseed = 0;
-    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.switches_per_edge, c.max_snapshots);
+void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned graphseed, unsigned seed) {
+    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, graphseed, seed, c.switches_per_edge, c.max_snapshots);
 }
 
 int main(int argc, char *argv[]) {
     tlx::CmdlineParser cp;
     cp.set_description("Autocorrelation Analysis");
 
-    std::string input_fn;
-    cp.add_param_string("input", input_fn, "Input Graph File");
-
     unsigned runs = 0;
     cp.add_param_unsigned("runs", runs, "Runs");
+
+    unsigned n;
+    cp.add_param_unsigned("n", n, "Number of Nodes");
+
+    double gamma = -2.01;
+    cp.add_param_double("gamma", gamma, "Degree Exponent Gamma");
+
+    unsigned graphseed = std::random_device{}();
+    cp.add_unsigned("graphseed", graphseed, "Graph Generation Seed");
 
     unsigned seed = std::random_device{}();
     cp.add_unsigned("seed", seed, "Autocorrelation Seed");
@@ -65,8 +74,13 @@ int main(int argc, char *argv[]) {
     if (!cp.process(argc, argv)) {
         return -1;
     }
-    
+
     std::cout << "# successfully processed command line arguments" << std::endl;
+
+    if (gamma > 2)
+        gamma = -gamma;
+
+    Aux::Random::setSeed(graphseed, true);
 
     std::vector<size_t> thinnings;
     thinnings.reserve(thinnings_str.size());
@@ -80,12 +94,18 @@ int main(int argc, char *argv[]) {
         thinnings.push_back(thinning);
     }
 
-    NetworKit::EdgeListReader edgelist_reader = NetworKit::EdgeListReader(' ', 0, "%", true);
-    NetworKit::Graph g = edgelist_reader.read(input_fn);
-    std::cout << "# successfully loaded edgelist file " << input_fn << std::endl;
+    NetworKit::Graph g;
+    {
+        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, gamma);
+        std::vector<NetworKit::count> ds;
+        ds_gen.run();
+        ds = ds_gen.getDegreeSequence(n);
+        g = NetworKit::HavelHakimiGenerator(ds, false).generate();
+    }
+    std::cout << "# successfully generated graph instance" << std::endl;
 
-    
-    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge);
+    const std::string graphname =  "pld" + std::to_string(-gamma);
+    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, graphname, switches_per_edge);
 
     // run autocorrelation analysis
     std::cout << "type,algo,"
@@ -111,8 +131,8 @@ int main(int argc, char *argv[]) {
 
         switch (algo) {
             case 1:
-                run_realworld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
-                        (config, gen, "ES-Robin", seed);
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
+                        (config, gen, "ES-Robin", graphseed, seed);
                 break;
             case 2:
                 break;
