@@ -112,12 +112,12 @@ int main(int argc, char *argv[]) {
 
         switch (algo) {
             case 1:
-                run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
-                        (config, gen, "ES-Robin", graphseed, seed);
+                run_realworld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
+                        (config, gen, "ES-Robin", seed);
                 break;
             case 2:
-                run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
-                        (config, gen, "ES-Global-NoWait-V4", graphseed, seed);
+                run_realworld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
+                        (config, gen, "ES-Global-NoWait-V4", seed);
                 break;
             default:
                 break;
