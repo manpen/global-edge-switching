@@ -262,7 +262,7 @@ public:
             std::cout << "AUTOCORR,"
                       << algo_label << ","
                       << graph_label << ","
-                      << n << ","
+                      << true_n << ","
                       << m << ","
                       << min_chain_length << ","
                       << min_snapshots_per_thinning << ","
