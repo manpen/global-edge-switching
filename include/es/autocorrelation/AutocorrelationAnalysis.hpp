@@ -112,7 +112,8 @@ public:
                             Graphseed& graphseed,
                             Seed& seed,
                             size_t switches_per_edge = 1,
-                            size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max())
+                            size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max(),
+                            int pus = 1)
             : curr_graph(graph),
               m_num_nodes(graph.numberOfNodes())
     {
@@ -192,7 +193,6 @@ public:
         }
 
         // compute independence rates
-        const auto pus = omp_get_max_threads();
         omp_set_num_threads(pus);
         std::vector<std::vector<thinning_counter_t>> thinning_counters(pus);
         for (auto &counter : thinning_counters) {
