@@ -1,22 +1,24 @@
 boilerplate = "" \
 + "#!/bin/bash\n" \
 + "#SBATCH --job-name=autocorr\n" \
-+ "#SBATCH --partition=general1,general2\n" \
-+ "#SBATCH --nodes=1\n" \
++ "#SBATCH --partition=general1\n" \
 + "#SBATCH --ntasks=1\n" \
-+ "#SBATCH --cpus-per-task=20\n" \
-+ "#SBATCH --mem-per-cpu=5000\n" \
++ "#SBATCH --cpus-per-task=16\n" \
++ "#SBATCH --mem-per-cpu=3500\n" \
 + "#SBATCH --time=12:00:00\n" \
 + "#SBATCH --no-requeue\n" \
 + "#SBATCH --mail-type=FAIL\n" \
 + "\n" \
 + "DIR=\"/scratch/memhierarchy/penschuck/networks/network-repository.com/\"\n" \
 + "OUTPUTDIR=\"/scratch/memhierarchy/tran/autocorrelation/$SLURM_JOB_ID/\"\n" \
-+ "mkdir -p $OUTPUTDIR\n"
++ "mkdir -p $OUTPUTDIR\n" \
++ "cp /home/memhierarchy/tran/edge-switching/release/autocorrelation_realworld .\n"
 
-jobs = 12
-minsnaps = 200
-maxsnaps = 200
+inputdir = "/scratch/memhierarchy/penschuck/networks/network-repository.com"
+outputdir = "/scratch/memhierarchy/tran/autocorrelation"
+jobs = 20
+minsnaps = 400
+maxsnaps = 400
 L = []
 with open("sorted.csv", "r") as reader:
     for line in reader.read().splitlines()[1::]:
@@ -43,5 +45,5 @@ for Jobgraphs, index in zip(J, range(len(J))):
         writer.write(boilerplate)
         for graph in Jobgraphs:
             log_fn = graph[0].split("/")[-1].split(".simp-undir-edges")[0]
-            writer.write("./autocorrelation_realworld 1 {} 20 1 2 3 4 5 6 8 9 10 12 14 15 16 18 20 50 --minsnaps {} --maxsnaps {} >> $OUTPUTDIR/{}-1.log\n".format(graph[0], minsnaps, maxsnaps, log_fn))
-            writer.write("./autocorrelation_realworld 2 {} 20 1 2 3 4 5 6 8 9 10 12 14 15 16 18 20 50 --minsnaps {} --maxsnaps {} >> $OUTPUTDIR/{}-2.log\n".format(graph[0], minsnaps, maxsnaps, log_fn))
+            writer.write("./autocorrelation_realworld 1 {}/{} 20 1 2 3 4 5 6 8 9 10 12 14 15 16 18 20 30 40 50 --minsnaps {} --maxsnaps {} >> {}/$SLURM_JOB_ID/{}-1.log\n".format(inputdir, graph[0], minsnaps, maxsnaps, outputdir, log_fn))
+            writer.write("./autocorrelation_realworld 2 {}/{} 20 1 2 3 4 5 6 8 9 10 12 14 15 16 18 20 30 40 50 --minsnaps {} --maxsnaps {} >> {}/$SLURM_JOB_ID/{}-2.log\n".format(inputdir, graph[0], minsnaps, maxsnaps, outputdir, log_fn))

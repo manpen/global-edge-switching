@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
         thinnings.push_back(thinning);
     }
 
-    NetworKit::EdgeListReader edgelist_reader = NetworKit::EdgeListReader(' ', 0, "%", true);
+    NetworKit::EdgeListReader edgelist_reader = NetworKit::EdgeListReader(',', 0, "%", true);
     NetworKit::Graph g = edgelist_reader.read(input_fn);
     std::cout << "# successfully loaded edgelist file " << input_fn << std::endl;
 
