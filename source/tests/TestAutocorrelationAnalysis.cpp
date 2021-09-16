@@ -30,6 +30,7 @@ int main() {
     die_unless(kgv(one_to_7) == 420);
     die_unless(kgv(one_to_10_m7) == 360);
     die_unless(kgv(power_of_twos_p5) == 160);
+    const std::vector<size_t> test_1 = {1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16, 18, 20, 24, 30};
 
     // time series
     const es::node_t n = 2000;
@@ -46,9 +47,10 @@ int main() {
     std::random_device rd;
     auto seed = rd();
     std::mt19937_64 gen(seed);
-    const size_t min_snapshots = 100;
+    const size_t min_snapshots = 400;
+    const size_t max_snapshots = min_snapshots;
     const std::vector<size_t> thinnings = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20, 100};
-    TimeSeries<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, thinnings, min_snapshots, "Robin", "PLD-2.01", graphseed, seed, 1, 200);
+    AutocorrelationAnalysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, test_1, min_snapshots, "Robin", "PLD-2.01", graphseed, seed, 1, max_snapshots, omp_get_max_threads());
 
     return 0;
 }

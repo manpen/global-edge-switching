@@ -13,25 +13,28 @@ struct autocorrelation_config_t {
     const size_t max_snapshots;
     const std::string graphlabel;
     const size_t switches_per_edge;
+    const int pus;
 
     autocorrelation_config_t(const NetworKit::Graph& g_,
                              const std::vector<size_t>& thinnings_,
                              size_t min_snapshots_,
                              size_t max_snapshots_,
                              const std::string& graphlabel_,
-                             size_t switches_per_edge_)
+                             size_t switches_per_edge_,
+                             int pus_)
             : g(g_),
             thinnings(thinnings_),
             min_snapshots(min_snapshots_),
             max_snapshots(max_snapshots_),
             graphlabel(graphlabel_),
-            switches_per_edge(switches_per_edge_) { }
+            switches_per_edge(switches_per_edge_),
+            pus(pus_) { }
 };
 
 template <typename Algo>
 void run_realworld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned seed) {
     const size_t fake_graphseed = 0;
-    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.switches_per_edge, c.max_snapshots);
+    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.switches_per_edge, c.max_snapshots, c.pus);
 }
 
 int main(int argc, char *argv[]) {
@@ -55,6 +58,9 @@ int main(int argc, char *argv[]) {
 
     unsigned max_snapshots;
     cp.add_unsigned("maxsnaps", max_snapshots, "Maximum Number of Snapshots / Thinning");
+
+    int pus = 1;
+    cp.add_int("pus", pus, "Number of PUs");
 
     unsigned switches_per_edge = 1;
     cp.add_unsigned("switchesperedge", switches_per_edge, "Switches / Edge");
@@ -86,7 +92,7 @@ int main(int argc, char *argv[]) {
     std::cout << "# successfully loaded edgelist file " << input_fn << std::endl;
 
     
-    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge);
+    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge, pus);
 
     // run autocorrelation analysis
     std::cout << "type,algo,"
