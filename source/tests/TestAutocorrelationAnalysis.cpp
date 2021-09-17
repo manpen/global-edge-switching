@@ -3,6 +3,7 @@
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <tlx/die.hpp>
 #include <vector>
 
@@ -49,8 +50,9 @@ int main() {
     std::mt19937_64 gen(seed);
     const size_t min_snapshots = 400;
     const size_t max_snapshots = min_snapshots;
-    const std::vector<size_t> thinnings = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20, 100};
+    const std::vector<size_t> thinnings = {1, 2, 3, 4, 5};
     AutocorrelationAnalysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>> ts(graph, gen, test_1, min_snapshots, "Robin", "PLD-2.01", graphseed, seed, 1, max_snapshots, omp_get_max_threads());
+    AutocorrelationAnalysis<es::AlgorithmParallelGlobalNoWaitV4> ts2(graph, gen, test_1, min_snapshots, "NoWaitV4", "PLD-2.01", graphseed, seed, 1, max_snapshots, omp_get_max_threads());
 
     return 0;
 }

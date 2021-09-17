@@ -76,7 +76,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
-        size_t num_rounds = 2 * (num_switches / edge_list_.size());
+        size_t num_rounds = 2 * num_switches / edge_list_.size();
         size_t successful_switches = 0;
 
         shuffle::GeneratorProvider gen_prov(gen);
