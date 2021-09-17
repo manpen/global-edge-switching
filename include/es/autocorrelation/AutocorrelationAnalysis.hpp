@@ -162,7 +162,7 @@ public:
 
             // compute requested number of switches, filling the gap from last snapshot to this snapshot
             const auto factor = snapshot - last_snapshot;
-            const auto requested_switches = factor * switches_per_edge * graph.numberOfEdges() / 2;
+            const auto requested_switches = factor * switches_per_edge * graph.numberOfEdges() / 2 + 1;
 
             Algo es(curr_graph);
             successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
