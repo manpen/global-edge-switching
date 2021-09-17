@@ -95,23 +95,6 @@ int main(int argc, char *argv[]) {
     const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge, pus);
 
     // run autocorrelation analysis
-    std::cout << "type,algo,"
-              << "graphlabel,"
-              << "n,"
-              << "m,"
-              << "chainlength,"
-              << "min snapshots/thinning,"
-              << "max snapshots/thinning,"
-              << "switches/edge,"
-              << "thinning,"
-              << "snapshots/thinning,"
-              << "successful switches,"
-              << "independent edges,"
-              << "non-independent edges,"
-              << "independent none-edges,"
-              << "non-independent none-edges,"
-              << "graphseed,"
-              << "seed" << std::endl;
     for (unsigned run = 0; run < runs; run++) {
         std::cout << "# run " << run << std::endl;
         std::mt19937_64 gen(seed);
