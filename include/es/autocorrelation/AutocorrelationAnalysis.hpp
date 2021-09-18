@@ -252,7 +252,7 @@ public:
                 thinning_successful_switches += successful_switches[sid];
 
             thinning_counter_t t;
-            for (int j = 0; j < omp_get_max_threads(); j++) {
+            for (int j = 0; j < pus; j++) {
                 t.num_non_independent += thinning_counters[j][thinningid].num_non_independent;
                 t.num_independent += thinning_counters[j][thinningid].num_independent;
                 t.num_orig_non_independent += thinning_counters[j][thinningid].num_orig_non_independent;
