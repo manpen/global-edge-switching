@@ -7,6 +7,7 @@
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
+#include <tsl/robin_set.h>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
 #include <networkit/auxiliary/Random.hpp>

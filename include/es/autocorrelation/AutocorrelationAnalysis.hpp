@@ -7,9 +7,7 @@
 #include <set>
 #include <iostream>
 #include <random>
-#include <tsl/robin_set.h>
 #include <es/Graph.hpp>
-#include <tlx/unused.hpp>
 
 size_t ggt(size_t a, size_t b) {
     while (b != 0) {
@@ -38,15 +36,11 @@ size_t kgv(const std::vector<size_t>& v) {
 struct thinning_counter_t {
     size_t num_non_independent = 0;
     size_t num_independent = 0;
-    size_t num_orig_non_independent = 0;
-    size_t num_orig_independent = 0;
     thinning_counter_t() = default;
 
-    void update(bool none, bool original, double delta_BIC) {
+    void update(bool none, double delta_BIC) {
         num_independent += (!none && delta_BIC < 0);
         num_non_independent += (!none && delta_BIC >= 0);
-        num_orig_independent += (!none && original && delta_BIC < 0);
-        num_orig_non_independent += (!none && original && delta_BIC >= 0);
     }
 };
 
@@ -98,8 +92,6 @@ struct transition_counter_t {
 
 template <typename Algo>
 class AutocorrelationAnalysis {
-    using edge_series_t = tsl::robin_set<es::edge_t, es::edge_hash_crc32>;
-
 public:
     AutocorrelationAnalysis() = delete;
 
@@ -151,11 +143,10 @@ public:
             t_edge_bits.emplace_back(num_possible_edges);
         }
 
-        m_snapshots_edges.resize(snapshots.size()*(n + 1)*n/2);
-
-        tsl::robin_set<es::edge_t, es::edge_hash_crc32> input_edges;
+        std::vector<size_t> orig_bit_indices;
+        orig_bit_indices.reserve(graph.numberOfEdges());
         graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
-            input_edges.insert(es::to_edge(u, v));
+            orig_bit_indices.push_back(get_index(es::to_edge(u, v)));
             for (auto &edge_bits : t_edge_bits) {
                 assert(get_index(es::to_edge(u, v)) < t_edge_bits[0].size());
                 edge_bits[get_index(es::to_edge(u, v))] = true;
@@ -172,7 +163,6 @@ public:
                 << "# chain length " << min_chain_length << "\n"
                 << "# individual snapshots " << snapshots.size() << "\n"
                 << "# datastructure size in Bytes  " << sizeof(thinning_counter_t) * thinnings.size() * num_possible_edges << "\n"
-                << "# number of snapshot edge bits " << m_snapshots_edges.size() << "\n"
                 << "# has [node 0: " << (graph.hasNode(0) ? "y]" : "n]") << "\n"
                 << "# has [node n: " << (graph.hasNode(n) ? "y]" : "n]")
                 << std::endl;
@@ -220,15 +210,6 @@ public:
                 }
             }
 
-            for (size_t eid = 0; eid < edgelist.size(); eid++) {
-                const auto e = edgelist[eid];
-                const auto [u, v] = es::to_nodes(e);
-                const auto ts_index = get_index(e);
-
-                assert(s * ts_index + snapshotid < m_snapshots_edges.size());
-                m_snapshots_edges[s * ts_index + snapshotid] = true;
-            }
-
             last_snapshot = snapshot;
             curr_graph = es.get_graph();
         }
@@ -245,94 +226,6 @@ public:
             }
         }
 
-        // compute independence rates
-        omp_set_num_threads(pus);
-        std::vector<std::vector<thinning_counter_t>> thinning_counters(pus);
-        for (auto &counter : thinning_counters) {
-            for (const auto thinning : thinnings) {
-                counter.emplace_back();
-            }
-        }
-        std::cout << "# processing time series [pus = " << pus << "]" << std::endl;
-#pragma omp parallel
-        {
-            const es::edge_hash_crc32 h;
-            const auto pu = omp_get_thread_num();
-
-            // compute begin and end for this pu
-            const auto fbeg = pu * m_snapshots_edges.size() / pus;
-            const auto fend = (pu + 1) * m_snapshots_edges.size() / pus;
-            const auto beg = (fbeg % s != 0 ? s * (fbeg / s + 1) : fbeg);
-            const auto end = (fend % s != 0 ? s * (fend / s + 1) : fend);
-            assert((pu < pus) || (fend == m_snapshots_edges.size()));
-            assert((pu < pus) || (end == m_snapshots_edges.size()));
-            assert((end - beg) % s == 0);
-
-            es::edge_t curr_edge = get_edge(beg / s);
-            assert(get_index(curr_edge) == beg / s);
-
-            for (size_t edgeblock = 0; edgeblock < (end - beg) / s; edgeblock++) {
-                const auto eb_beg = beg + edgeblock * s;
-                const auto eb_end = beg + (edgeblock + 1) * s;
-                tlx::unused(eb_end);
-                const auto [u, v] = es::to_nodes(curr_edge);
-                for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
-                    const auto thinning = thinnings[thinningid];
-                    const bool edge_is_original = (input_edges.find(curr_edge, h(curr_edge)) != input_edges.end());
-                    bool edge_exists = edge_is_original;
-                    transition_counter_t edge_transitions{0., 0., 0., 0.};
-
-                    for (const auto sid : thinning_snapshots[thinningid]) {
-                        const auto snapshot = snapshots[sid];
-                        assert(eb_beg + sid < eb_end);
-                        edge_transitions.update(edge_exists, m_snapshots_edges[eb_beg + sid]);
-                        edge_exists = m_snapshots_edges[eb_beg + sid];
-                    }
-
-                    const double delta_BIC = edge_transitions.compute_delta_BIC();
-                    thinning_counters[pu][thinningid].update(edge_transitions.is_none(), edge_is_original, delta_BIC);
-                }
-
-                curr_edge = get_next_edge(curr_edge);
-            }
-        }
-
-        // combine parallely computed number of independent edges for each thinning parameter
-        std::vector<thinning_counter_t> final_counters;
-        for (size_t thinningid = 0; thinningid < thinnings.size(); thinningid++) {
-            size_t thinning_successful_switches = 0;
-            for (size_t sid = 0; sid <= thinning_snapshots[thinningid].back(); sid++)
-                thinning_successful_switches += successful_switches[sid];
-
-            thinning_counter_t t;
-            for (int j = 0; j < pus; j++) {
-                t.num_non_independent += thinning_counters[j][thinningid].num_non_independent;
-                t.num_independent += thinning_counters[j][thinningid].num_independent;
-                t.num_orig_non_independent += thinning_counters[j][thinningid].num_orig_non_independent;
-                t.num_orig_independent += thinning_counters[j][thinningid].num_orig_independent;
-            }
-
-            std::cout << "AUTOCORR,"
-                      << algo_label << ","
-                      << graph_label << ","
-                      << true_n << ","
-                      << m << ","
-                      << min_chain_length << ","
-                      << min_snapshots_per_thinning << ","
-                      << max_snapshots_per_thinning << ","
-                      << switches_per_edge << ","
-                      << thinnings[thinningid] << ","
-                      << thinning_snapshots[thinningid].size() << ","
-                      << thinning_successful_switches << ","
-                      << t.num_independent << ","
-                      << t.num_non_independent << ","
-                      << t.num_orig_independent << ","
-                      << t.num_orig_non_independent << ","
-                      << (true_n)*(true_n - 1)/ 2 - t.num_independent - t.num_non_independent << ","
-                      << graphseed << ","
-                      << seed << std::endl;
-        }
-
         const es::edge_hash_crc32 h;
         for (size_t tid = 0; tid < thinnings.size(); tid++) {
             size_t thinning_successful_switches = 0;
@@ -345,15 +238,15 @@ public:
             es::edge_t curr_edge = get_edge(0);
             for (const auto &edge_transition : edge_transitions) {
                 const double delta_BIC = edge_transition.compute_delta_BIC();
-                eval_all.update(edge_transition.is_none(), false, delta_BIC);
+                eval_all.update(edge_transition.is_none(), delta_BIC);
 
                 curr_edge = get_next_edge(curr_edge);
             }
-            graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
-                const auto orig_edge_transition = edge_transitions[get_index(es::to_edge(u, v))];
+            for (const auto &orig_bit_index : orig_bit_indices) {
+                const auto orig_edge_transition = edge_transitions[orig_bit_index];
                 const double orig_delta_BIC = orig_edge_transition.compute_delta_BIC();
-                eval_orig.update(orig_edge_transition.is_none(), false, orig_delta_BIC);
-            });
+                eval_orig.update(orig_edge_transition.is_none(), orig_delta_BIC);
+            }
 
             std::cout << "AUTOCORR,"
                       << algo_label << ","
@@ -379,7 +272,6 @@ public:
 
 private:
     const es::node_t m_num_nodes;
-    std::vector<bool> m_snapshots_edges;
     NetworKit::Graph curr_graph;
 
     size_t get_index(es::edge_t e) {
