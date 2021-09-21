@@ -19,7 +19,8 @@ struct autocorrelation_config_t {
     const size_t max_snapshots;
     const std::string graphlabel;
     const size_t switches_per_edge;
-    const int pus;
+    const bool skip_non_orig;
+    const std::string output_fn_prefix;
 
     autocorrelation_config_t(const NetworKit::Graph& g_,
                              const std::vector<size_t>& thinnings_,
@@ -27,19 +28,34 @@ struct autocorrelation_config_t {
                              size_t max_snapshots_,
                              const std::string& graphlabel_,
                              size_t switches_per_edge_,
-                             int pus_)
+                             bool skip_non_orig_,
+                             const std::string& output_fn_prefix_)
             : g(g_),
               thinnings(thinnings_),
               min_snapshots(min_snapshots_),
               max_snapshots(max_snapshots_),
               graphlabel(graphlabel_),
               switches_per_edge(switches_per_edge_),
-              pus(pus_) { }
+              skip_non_orig(skip_non_orig_),
+              output_fn_prefix(output_fn_prefix_)
+    { }
 };
 
 template <typename Algo>
-void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned graphseed, unsigned seed) {
-    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, graphseed, seed, c.switches_per_edge, c.max_snapshots, c.pus);
+void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned graphseed, unsigned seed, int pu_id) {
+    AutocorrelationAnalysis<Algo> aa(c.g,
+                                     gen,
+                                     c.thinnings,
+                                     c.min_snapshots,
+                                     algolabel,
+                                     c.graphlabel,
+                                     graphseed,
+                                     seed,
+                                     c.output_fn_prefix,
+                                     pu_id,
+                                     c.switches_per_edge,
+                                     c.max_snapshots,
+                                     c.skip_non_orig);
 }
 
 int main(int argc, char *argv[]) {
@@ -73,11 +89,18 @@ int main(int argc, char *argv[]) {
     unsigned switches_per_edge = 1;
     cp.add_unsigned("switchesperedge", switches_per_edge, "Switches / Edge");
 
+    bool skip_non_orig = false;
+    cp.add_flag("skipnonorig", skip_non_orig, "Skip Non-Original Edges");
+
     int pus = 1;
     cp.add_int("pus", pus, "Number of PUs");
 
+    std::string output_fn_prefix;
+    cp.add_param_string("outputfnprefix", output_fn_prefix, "Output Filename Prefix");
+
     std::vector<std::string> thinnings_str;
     cp.add_param_stringlist("thinnings", thinnings_str, "Thinning Values e.g. --thinnings 1 2 3 4");
+
 
     // evaluate command line parser
     if (!cp.process(argc, argv)) {
@@ -116,28 +139,27 @@ int main(int argc, char *argv[]) {
     std::cout << "# successfully generated graph instance" << std::endl;
 
     const std::string graphname =  "pld" + std::to_string(-gamma);
-    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, graphname, switches_per_edge, pus);
+    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, graphname, switches_per_edge, skip_non_orig, output_fn_prefix);
 
     // run autocorrelation analysis
+#pragma omp parallel for num_threads(pus)
     for (unsigned run = 0; run < runs; run++) {
+        const int pu_id = omp_get_thread_num();
         std::cout << "# run " << run << std::endl;
-        std::mt19937_64 gen(seed);
+        std::mt19937_64 gen((seed ? pus == 1 : std::random_device{}()));
 
         switch (algo) {
             case 1:
                 run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
-                (config, gen, "ES-Robin", graphseed, seed);
+                        (config, gen, "ES-Robin", graphseed, seed, pu_id);
                 break;
             case 2:
                 run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
-                        (config, gen, "ES-Global-NoWait-V4", graphseed, seed);
+                        (config, gen, "ES-Global-NoWait-V4", graphseed, seed, pu_id);
                 break;
             default:
                 break;
         }
-
-        // generate new random seed for the next run
-        seed = std::random_device{}();
     }
 
     return 0;
