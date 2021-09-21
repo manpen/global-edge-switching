@@ -6,8 +6,10 @@
 #include <vector>
 #include <set>
 #include <iostream>
+#include <fstream>
 #include <random>
 #include <es/Graph.hpp>
+#include <format>
 
 size_t ggt(size_t a, size_t b) {
     while (b != 0) {
@@ -104,9 +106,11 @@ public:
                             const std::string& graph_label,
                             Graphseed& graphseed,
                             Seed& seed,
+                            const std::string& output_fn_prefix,
+                            int pu_id,
                             size_t switches_per_edge = 1,
                             size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max(),
-                            int pus = 1)
+                            bool skip_non_original = false)
             : curr_graph(graph),
               m_num_nodes(graph.numberOfNodes())
     {
@@ -198,10 +202,19 @@ public:
                     const auto &edge_bits = t_edge_bits[tid];
                     auto &edge_transitions = t_edge_transitions[tid];
                     assert(edge_bits.size() == sw_edge_bits.size());
-                    for (size_t bitid = 0; bitid < edge_bits.size(); bitid++) {
-                        const auto prev = edge_bits[bitid];
-                        const auto next = sw_edge_bits[bitid];
-                        edge_transitions[bitid].update(prev, next);
+
+                    if (!skip_non_original) {
+                        for (size_t bitid = 0; bitid < edge_bits.size(); bitid++) {
+                            const auto prev = edge_bits[bitid];
+                            const auto next = sw_edge_bits[bitid];
+                            edge_transitions[bitid].update(prev, next);
+                        }
+                    } else {
+                        for (const auto &orig_bit_index : orig_bit_indices) {
+                            const auto prev = edge_bits[orig_bit_index];
+                            const auto next = sw_edge_bits[orig_bit_index];
+                            edge_transitions[orig_bit_index].update(prev, next);
+                        }
                     }
 
                     // update for this thinning last considered snapshot and edgebits
@@ -227,6 +240,8 @@ public:
             }
         }
 
+        // open file to write to
+        std::ofstream out_file(std::format("{}_{}.log", output_fn_prefix, pu_id));
         const es::edge_hash_crc32 h;
         for (size_t tid = 0; tid < thinnings.size(); tid++) {
             size_t thinning_successful_switches = 0;
@@ -236,12 +251,11 @@ public:
             thinning_counter_t eval_all;
             thinning_counter_t eval_orig;
             const auto &edge_transitions = t_edge_transitions[tid];
-            es::edge_t curr_edge = get_edge(0);
-            for (const auto &edge_transition : edge_transitions) {
-                const double delta_BIC = edge_transition.compute_delta_BIC();
-                eval_all.update(edge_transition.is_none(), delta_BIC);
-
-                curr_edge = get_next_edge(curr_edge);
+            if (!skip_non_original) {
+                for (const auto &edge_transition : edge_transitions) {
+                    const double delta_BIC = edge_transition.compute_delta_BIC();
+                    eval_all.update(edge_transition.is_none(), delta_BIC);
+                }
             }
             for (const auto &orig_bit_index : orig_bit_indices) {
                 const auto orig_edge_transition = edge_transitions[orig_bit_index];
@@ -249,7 +263,7 @@ public:
                 eval_orig.update(orig_edge_transition.is_none(), orig_delta_BIC);
             }
 
-            std::cout << "AUTOCORR,"
+            out_file  << "AUTOCORR,"
                       << algo_label << ","
                       << graph_label << ","
                       << true_n << ","
@@ -267,8 +281,10 @@ public:
                       << eval_orig.num_non_independent << ","
                       << (true_n)*(true_n - 1)/ 2 - eval_all.num_independent - eval_all.num_non_independent << ","
                       << graphseed << ","
-                      << seed << std::endl;
+                      << seed << "\n";
         }
+
+        out_file.close();
     }
 
 private:
