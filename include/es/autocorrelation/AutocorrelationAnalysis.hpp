@@ -193,7 +193,8 @@ public:
             for (size_t tid = 0; tid < thinnings.size(); tid++) {
                 const auto prev_snapshot = t_prev_snapshots[tid];
                 const auto thinning = thinnings[tid];
-                if (prev_snapshot + thinning == snapshot) {
+                const auto proc_snapshots = t_proc_snapshots[tid];
+                if ((prev_snapshot + thinning == snapshot) && (proc_snapshots < max_snapshots_per_thinning)) {
                     const auto &edge_bits = t_edge_bits[tid];
                     auto &edge_transitions = t_edge_transitions[tid];
                     assert(edge_bits.size() == sw_edge_bits.size());
