@@ -128,18 +128,7 @@ int main(int argc, char *argv[]) {
 
     const size_t maxdeg = static_cast<size_t>(std::pow(n, 1./(-gamma - 1.)));
     std::cout << "# setting maximum degree to " << maxdeg << std::endl;
-    NetworKit::Graph g;
-    {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, maxdeg, gamma);
-        std::vector<NetworKit::count> ds;
-        ds_gen.run();
-        ds = ds_gen.getDegreeSequence(n);
-        g = NetworKit::HavelHakimiGenerator(ds, false).generate();
-    }
-    std::cout << "# successfully generated graph instance" << std::endl;
-
     const std::string graphname =  "pld" + std::to_string(-gamma);
-    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, graphname, switches_per_edge, skip_non_orig, output_fn_prefix);
 
     // run autocorrelation analysis
 #pragma omp parallel for num_threads(pus)
@@ -147,6 +136,27 @@ int main(int argc, char *argv[]) {
         const int pu_id = omp_get_thread_num();
         std::cout << "# run " << run << std::endl;
         std::mt19937_64 gen((seed ? pus == 1 : std::random_device{}()));
+
+        NetworKit::Graph g;
+        bool done = false;
+        while (!done) {
+            try {
+                {
+                    NetworKit::PowerlawDegreeSequence ds_gen(1, maxdeg, gamma);
+                    std::vector<NetworKit::count> ds;
+                    ds_gen.run();
+                    ds = ds_gen.getDegreeSequence(n);
+                    g = NetworKit::HavelHakimiGenerator(ds, false).generate();
+                }
+                std::cout << "# successfully generated graph instance" << std::endl;
+                done = true;
+            } catch (const std::runtime_error& error) {
+                std::cout << "# failed to generate graph instance" << std::endl;
+            }
+        }
+
+        const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, graphname, switches_per_edge, skip_non_orig, output_fn_prefix);
+
 
         switch (algo) {
             case 1:
