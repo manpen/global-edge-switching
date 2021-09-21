@@ -1,5 +1,6 @@
 #include <iostream>
 #include <tlx/cmdline_parser.hpp>
+#include <tsl/robin_set.h>
 #include <networkit/graph/Graph.hpp>
 #include <networkit/io/EdgeListReader.hpp>
 #include <es/autocorrelation/AutocorrelationAnalysis.hpp>
@@ -13,7 +14,8 @@ struct autocorrelation_config_t {
     const size_t max_snapshots;
     const std::string graphlabel;
     const size_t switches_per_edge;
-    const int pus;
+    const bool skip_non_orig;
+    const std::string output_fn_prefix;
 
     autocorrelation_config_t(const NetworKit::Graph& g_,
                              const std::vector<size_t>& thinnings_,
@@ -21,20 +23,35 @@ struct autocorrelation_config_t {
                              size_t max_snapshots_,
                              const std::string& graphlabel_,
                              size_t switches_per_edge_,
-                             int pus_)
+                             bool skip_non_orig_,
+                             const std::string& output_fn_prefix_)
             : g(g_),
-            thinnings(thinnings_),
-            min_snapshots(min_snapshots_),
-            max_snapshots(max_snapshots_),
-            graphlabel(graphlabel_),
-            switches_per_edge(switches_per_edge_),
-            pus(pus_) { }
+              thinnings(thinnings_),
+              min_snapshots(min_snapshots_),
+              max_snapshots(max_snapshots_),
+              graphlabel(graphlabel_),
+              switches_per_edge(switches_per_edge_),
+              skip_non_orig(skip_non_orig_),
+              output_fn_prefix(output_fn_prefix_)
+    { }
 };
 
 template <typename Algo>
-void run_realworld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned seed) {
+void run_realworld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned seed, int pu_id) {
     const size_t fake_graphseed = 0;
-    AutocorrelationAnalysis<Algo> aa(c.g, gen, c.thinnings, c.min_snapshots, algolabel, c.graphlabel, fake_graphseed, seed, c.switches_per_edge, c.max_snapshots, c.pus);
+    AutocorrelationAnalysis<Algo> aa(c.g,
+                                     gen,
+                                     c.thinnings,
+                                     c.min_snapshots,
+                                     algolabel,
+                                     c.graphlabel,
+                                     fake_graphseed,
+                                     seed,
+                                     c.output_fn_prefix,
+                                     pu_id,
+                                     c.switches_per_edge,
+                                     c.max_snapshots,
+                                     c.skip_non_orig);
 }
 
 int main(int argc, char *argv[]) {
@@ -65,6 +82,12 @@ int main(int argc, char *argv[]) {
     unsigned switches_per_edge = 1;
     cp.add_unsigned("switchesperedge", switches_per_edge, "Switches / Edge");
 
+    bool skip_non_orig = true;
+    cp.add_flag("skipnonorig", skip_non_orig, "Skip Non-Original Edges");
+
+    std::string output_fn_prefix;
+    cp.add_param_string("outputfnprefix", output_fn_prefix, "Output Filename Prefix");
+
     std::vector<std::string> thinnings_str;
     cp.add_param_stringlist("thinnings", thinnings_str, "Thinning Values e.g. --thinnings 1 2 3 4");
 
@@ -91,22 +114,23 @@ int main(int argc, char *argv[]) {
     NetworKit::Graph g = edgelist_reader.read(input_fn);
     std::cout << "# successfully loaded edgelist file " << input_fn << std::endl;
 
-    
-    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge, pus);
+    const autocorrelation_config_t config(g, thinnings, min_snapshots, max_snapshots, input_fn, switches_per_edge, skip_non_orig, output_fn_prefix);
 
     // run autocorrelation analysis
+#pragma omp parallel for num_threads(pus)
     for (unsigned run = 0; run < runs; run++) {
+        const int pu_id = omp_get_thread_num();
         std::cout << "# run " << run << std::endl;
         std::mt19937_64 gen(seed);
 
         switch (algo) {
             case 1:
                 run_realworld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
-                        (config, gen, "ES-Robin", seed);
+                        (config, gen, "ES-Robin", seed, pu_id);
                 break;
             case 2:
                 run_realworld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
-                        (config, gen, "ES-Global-NoWait-V4", seed);
+                        (config, gen, "ES-Global-NoWait-V4", seed, pu_id);
                 break;
             default:
                 break;
