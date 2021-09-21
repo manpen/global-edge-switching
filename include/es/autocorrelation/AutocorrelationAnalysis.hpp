@@ -9,7 +9,6 @@
 #include <fstream>
 #include <random>
 #include <es/Graph.hpp>
-#include <format>
 
 size_t ggt(size_t a, size_t b) {
     while (b != 0) {
@@ -241,7 +240,7 @@ public:
         }
 
         // open file to write to
-        std::ofstream out_file(std::format("{}_{}.log", output_fn_prefix, pu_id));
+        std::ofstream out_file(output_fn_prefix + std::to_string(pu_id) + ".log");
         const es::edge_hash_crc32 h;
         for (size_t tid = 0; tid < thinnings.size(); tid++) {
             size_t thinning_successful_switches = 0;
