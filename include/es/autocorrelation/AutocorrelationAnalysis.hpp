@@ -55,6 +55,7 @@ struct transition_counter_t {
     double x01;
     double x10;
     double x11;
+    transition_counter_t() = default;
     transition_counter_t(double y00, double y01, double y10, double y11) : x00(y00), x01(y01), x10(y10), x11(y11) { }
 
     void update(bool p, bool n) {
@@ -134,10 +135,32 @@ public:
         for (NetworKit::node node = 0; node < n; node++) true_n += (graph.degree(node) > 0);
         std::vector<size_t> snapshots;
         std::copy(snapshots_set.begin(), snapshots_set.end(), std::back_inserter(snapshots));
+
+        // data structure for the thinnings contains
+        // - per possible edge a transition counter
+        // - last considered snapshot
+        const size_t num_possible_edges = n * (n - 1)/2;
+        std::vector<size_t> t_prev_snapshots(thinnings.size());
+        std::vector<size_t> t_proc_snapshots(thinnings.size());
+        std::vector<std::vector<transition_counter_t>> t_edge_transitions;
+        std::vector<std::vector<bool>> t_edge_bits;
+        t_edge_transitions.reserve(thinnings.size());
+        t_edge_bits.reserve(thinnings.size());
+        for (size_t tid = 0; tid < thinnings.size(); tid++) {
+            t_edge_transitions.emplace_back(num_possible_edges);
+            t_edge_bits.emplace_back(num_possible_edges);
+        }
+
         m_snapshots_edges.resize(snapshots.size()*(n + 1)*n/2);
 
         tsl::robin_set<es::edge_t, es::edge_hash_crc32> input_edges;
-        graph.forEdges([&](NetworKit::node u, NetworKit::node v) { input_edges.insert(es::to_edge(u, v)); });
+        graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
+            input_edges.insert(es::to_edge(u, v));
+            for (auto &edge_bits : t_edge_bits) {
+                assert(get_index(es::to_edge(u, v)) < t_edge_bits[0].size());
+                edge_bits[get_index(es::to_edge(u, v))] = true;
+            }
+        });
 
         std::cout
                 << "# processing:\n"
@@ -148,6 +171,7 @@ public:
                 << "# m " << m << "\n"
                 << "# chain length " << min_chain_length << "\n"
                 << "# individual snapshots " << snapshots.size() << "\n"
+                << "# datastructure size in Bytes  " << sizeof(thinning_counter_t) * thinnings.size() * num_possible_edges << "\n"
                 << "# number of snapshot edge bits " << m_snapshots_edges.size() << "\n"
                 << "# has [node 0: " << (graph.hasNode(0) ? "y]" : "n]") << "\n"
                 << "# has [node n: " << (graph.hasNode(n) ? "y]" : "n]")
@@ -164,14 +188,43 @@ public:
             const auto factor = snapshot - last_snapshot;
             const auto requested_switches = factor * switches_per_edge * graph.numberOfEdges() / 2 + 1;
 
+            // perform switchings
             Algo es(curr_graph);
             successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
             const auto &edgelist = es.get_edgelist();
+
+            // copy edgelist to bit representation
+            std::vector<bool> sw_edge_bits(num_possible_edges);
+            for (const auto &edge : edgelist) {
+                sw_edge_bits[get_index(edge)] = true;
+            }
+
+            // iterate over different thinnings and perform updates
+            for (size_t tid = 0; tid < thinnings.size(); tid++) {
+                const auto prev_snapshot = t_prev_snapshots[tid];
+                const auto thinning = thinnings[tid];
+                if (prev_snapshot + thinning == snapshot) {
+                    const auto &edge_bits = t_edge_bits[tid];
+                    auto &edge_transitions = t_edge_transitions[tid];
+                    assert(edge_bits.size() == sw_edge_bits.size());
+                    for (size_t bitid = 0; bitid < edge_bits.size(); bitid++) {
+                        const auto prev = edge_bits[bitid];
+                        const auto next = sw_edge_bits[bitid];
+                        edge_transitions[bitid].update(prev, next);
+                    }
+
+                    // update for this thinning last considered snapshot and edgebits
+                    t_prev_snapshots[tid] = snapshot;
+                    t_edge_bits[tid] = sw_edge_bits;
+                    t_proc_snapshots[tid]++;
+                }
+            }
 
             for (size_t eid = 0; eid < edgelist.size(); eid++) {
                 const auto e = edgelist[eid];
                 const auto [u, v] = es::to_nodes(e);
                 const auto ts_index = get_index(e);
+
                 assert(s * ts_index + snapshotid < m_snapshots_edges.size());
                 m_snapshots_edges[s * ts_index + snapshotid] = true;
             }
@@ -279,6 +332,49 @@ public:
                       << graphseed << ","
                       << seed << std::endl;
         }
+
+        const es::edge_hash_crc32 h;
+        for (size_t tid = 0; tid < thinnings.size(); tid++) {
+            size_t thinning_successful_switches = 0;
+            for (size_t sid = 0; sid <= thinning_snapshots[tid].back(); sid++)
+                thinning_successful_switches += successful_switches[sid];
+
+            thinning_counter_t eval_all;
+            thinning_counter_t eval_orig;
+            const auto &edge_transitions = t_edge_transitions[tid];
+            es::edge_t curr_edge = get_edge(0);
+            for (const auto &edge_transition : edge_transitions) {
+                const double delta_BIC = edge_transition.compute_delta_BIC();
+                eval_all.update(edge_transition.is_none(), false, delta_BIC);
+
+                curr_edge = get_next_edge(curr_edge);
+            }
+            graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
+                const auto orig_edge_transition = edge_transitions[get_index(es::to_edge(u, v))];
+                const double orig_delta_BIC = orig_edge_transition.compute_delta_BIC();
+                eval_orig.update(orig_edge_transition.is_none(), false, orig_delta_BIC);
+            });
+
+            std::cout << "AUTOCORR,"
+                      << algo_label << ","
+                      << graph_label << ","
+                      << true_n << ","
+                      << m << ","
+                      << min_chain_length << ","
+                      << min_snapshots_per_thinning << ","
+                      << max_snapshots_per_thinning << ","
+                      << switches_per_edge << ","
+                      << thinnings[tid] << ","
+                      << t_proc_snapshots[tid] << ","
+                      << thinning_successful_switches << ","
+                      << eval_all.num_independent << ","
+                      << eval_all.num_non_independent << ","
+                      << eval_orig.num_independent << ","
+                      << eval_orig.num_non_independent << ","
+                      << (true_n)*(true_n - 1)/ 2 - eval_all.num_independent - eval_all.num_non_independent << ","
+                      << graphseed << ","
+                      << seed << std::endl;
+        }
     }
 
 private:
@@ -290,12 +386,12 @@ private:
         const auto uv = es::to_nodes(e);
         const auto u = uv.first;
         const auto v = uv.second;
-        const auto d = m_num_nodes + 1;
+        const auto d = m_num_nodes;
         return (d*(d-1)/2) - (d-u) * ((d-u) - 1)/2 + v - u - 1;
     }
 
     es::edge_t get_edge(size_t i) {
-        const auto d = m_num_nodes + 1;
+        const auto d = m_num_nodes;
         const auto u = d - 2 - static_cast<es::node_t>(std::floor(std::sqrt(-8*i + 4*d*(d-1) - 7)/2. - 0.5));
         const auto v = i + u + 1 - d*(d-1)/2 + (d-u)*((d-u)-1)/2;
         return es::to_edge(u, v);
@@ -305,7 +401,7 @@ private:
         const auto uv = es::to_nodes(e);
         const auto u = uv.first;
         const auto v = uv.second;
-        if (v == m_num_nodes) {
+        if (v == m_num_nodes - 1) {
             return es::to_edge(u + 1, u + 2);
         } else {
             return es::to_edge(u, v + 1);
