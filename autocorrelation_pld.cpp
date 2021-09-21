@@ -103,9 +103,11 @@ int main(int argc, char *argv[]) {
         thinnings.push_back(thinning);
     }
 
+    const size_t maxdeg = static_cast<size_t>(std::pow(n, 1./(-gamma - 1.)));
+    std::cout << "# setting maximum degree to " << maxdeg << std::endl;
     NetworKit::Graph g;
     {
-        NetworKit::PowerlawDegreeSequence ds_gen(1, n - 1, gamma);
+        NetworKit::PowerlawDegreeSequence ds_gen(1, maxdeg, gamma);
         std::vector<NetworKit::count> ds;
         ds_gen.run();
         ds = ds_gen.getDegreeSequence(n);
