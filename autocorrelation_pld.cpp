@@ -42,7 +42,7 @@ struct autocorrelation_config_t {
 };
 
 template <typename Algo>
-void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned graphseed, unsigned seed, int pu_id) {
+void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt19937_64& gen, const std::string& algolabel, unsigned graphseed, unsigned seed, int pu_id, std::string tag = "") {
     AutocorrelationAnalysis<Algo> aa(c.g,
                                      gen,
                                      c.thinnings,
@@ -51,7 +51,7 @@ void run_pld_autocorrelation_analysis(const autocorrelation_config_t& c, std::mt
                                      c.graphlabel,
                                      graphseed,
                                      seed,
-                                     c.output_fn_prefix,
+                                     c.output_fn_prefix + tag,
                                      pu_id,
                                      c.switches_per_edge,
                                      c.max_snapshots,
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     cp.set_description("Autocorrelation Analysis");
 
     unsigned algo = 0;
-    cp.add_param_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global");
+    cp.add_param_unsigned("algo", algo, "Algorithm; 1=Robin, 2=Global, 3=Both");
 
     unsigned runs = 0;
     cp.add_param_unsigned("runs", runs, "Runs");
@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
         while (!done) {
             try {
                 {
+                    graphseed = Aux::Random::getSeed();
                     NetworKit::PowerlawDegreeSequence ds_gen(1, maxdeg, gamma);
                     std::vector<NetworKit::count> ds;
                     ds_gen.run();
@@ -167,6 +168,12 @@ int main(int argc, char *argv[]) {
             case 2:
                 run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
                         (config, gen, "ES-Global-NoWait-V4", graphseed, seed, pu_id);
+                break;
+            case 3:
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
+                        (config, gen, "ES-Robin", graphseed, seed, pu_id, "es");
+                run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
+                        (config, gen, "ES-Global-NoWait-V4", graphseed, seed, pu_id, "ges");
                 break;
             default:
                 break;
