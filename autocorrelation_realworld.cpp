@@ -121,7 +121,9 @@ int main(int argc, char *argv[]) {
     for (unsigned run = 0; run < runs; run++) {
         const int pu_id = omp_get_thread_num();
         std::cout << "# run " << run << std::endl;
-        std::mt19937_64 gen(seed);
+        Aux::Random::setSeed(seed, true);
+        auto& gen = Aux::Random::getURNG();
+//std::mt19937_64 gen(Aux::Random::integer());
 
         switch (algo) {
             case 1:
