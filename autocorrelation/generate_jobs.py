@@ -1,22 +1,24 @@
 import math
 import pprint
 
-def return_boilerplate(jobid, t, edges):
-    approxtime = math.ceil(120. * float(edges) / 4000000.) + 3 
+def return_boilerplate(jobid, t, edges, pus, tasks):
+    approxtime = math.ceil(32 * float(edges) / 4000000.) + 1
     boilerplate = "" \
         + "#!/bin/bash\n" \
-        + "#SBATCH --job-name=ac-12e4-25e5-{}\n".format(2 * jobid + t - 1) \
+        + "#SBATCH --job-name=ac-rw-{}\n".format(2 * jobid + t - 1) \
         + "#SBATCH --partition=general1\n" \
-        + "#SBATCH --ntasks=1\n" \
-        + "#SBATCH --cpus-per-task=16\n" \
-        + "#SBATCH --mem-per-cpu=3500\n" \
+        + "#SBATCH --nodes=1\n" \
+        + "#SBATCH --ntasks={}\n".format(tasks) \
+        + "#SBATCH --cpus-per-task={}\n".format(pus) \
+        + "#SBATCH --mem-per-cpu={}\n".format(int(188. / float(tasks) * 1000)) \
         + "#SBATCH --time={}:00:00\n".format(approxtime) \
         + "#SBATCH --no-requeue\n" \
         + "#SBATCH --mail-type=FAIL\n" \
         + "\n" \
         + "DIR=\"/scratch/memhierarchy/penschuck/networks/network-repository.com/\"\n" \
-        + "OUTPUTDIR=\"/scratch/memhierarchy/tran/autocorrelation/$SLURM_JOB_ID/\"\n" \
+        + "OUTPUTDIR=\"/scratch/memhierarchy/tran/parrwautocorrelation/$SLURM_JOB_ID/\"\n" \
         + "mkdir -p $OUTPUTDIR\n" \
+        + "export OMP_NUM_THREADS={}\n".format(pus) \
         + "cp /home/memhierarchy/tran/edge-switching/release/autocorrelation_realworld .\n"
     return boilerplate
 
@@ -25,11 +27,13 @@ types = ["bio", "bn", "ca", "cit", "eco", "econ", "email", "heter", "ia", "inf",
          "retweet_graphs", "road", "sc", "soc", "socfb", "tech", "web"]
 
 inputdir = "/scratch/memhierarchy/penschuck/networks/network-repository.com"
-outputdir = "/scratch/memhierarchy/tran/autocorrelation"
+outputdir = "/scratch/memhierarchy/tran/parrwautocorrelation"
 jobs = 15
+runs = 15
 minsnaps = 10000
 maxsnaps = 10000
-pus = 40
+tasks = 40
+pus = 1
 L = []
 
 with open("sorted.csv", "r") as reader:
@@ -40,8 +44,8 @@ with open("sorted.csv", "r") as reader:
         stype = s[0].split("/")[0]
         if not (stype in types):
             continue
-        # do 100k for now
-        if m > 100000:
+        # do 300k for now
+        if m > 10000:
             continue
         if m < 1000:
             continue
@@ -68,14 +72,40 @@ for t in L:
         index = 0
     J[index].append(t)
 
-# 1 2 3 4 5 6 7 8 9 10 12 14 15 18 20 21 24 25 26 28 30 50 70 100
+def fn(jobgraph):
+    return jobgraph[0]
+
+def logfn(fullpathfn):
+    return fullpathfn[0].split("/")[-1].split(".simp-undir-edges")[0]
+
+def chunks(lst, sz):
+    for i in range(0, len(lst), sz):
+        yield lst[i:i + sz]
+
+thins = "1 2 3 4 5 6 7 8 9 10 12 14 15 18 20 21 24 25 26 28 30"
 for Jobgraphs, index in zip(J, range(len(J))):
     if len(Jobgraphs) == 0:
         continue   
     jsum = sum(map(lambda k:k[2], Jobgraphs))
     for typ in [1, 2]:
         with open("job-{}.sh".format(2 * index + typ - 1), "w") as writer:
-            writer.write(return_boilerplate(index, typ, jsum))
-            for graph in Jobgraphs:
-                log_fn = graph[0].split("/")[-1].split(".simp-undir-edges")[0]
-                writer.write("./autocorrelation_realworld {} {}/{} {}/{}_ 40 1 2 3 4 5 6 8 9 10 12 14 15 18 20 21 24 25 26 28 30 50 70 100 --minsnaps {} --maxsnaps {} --pus {}\n".format(typ, inputdir, graph[0], outputdir, graph[0], minsnaps, maxsnaps, pus, outputdir, log_fn, typ))
+            JobgraphsDups = [(val, dupid) for val in Jobgraphs for dupid in range(runs)]
+            todo_tasks = len(JobgraphsDups)
+            job_bundles = list(chunks(JobgraphsDups, tasks))
+            max_bundle_size = max(map(lambda k: len(k), job_bundles))
+            writer.write(return_boilerplate(index, typ, jsum, pus, max_bundle_size))
+            for bundle, bundleid in zip(job_bundles, range(len(job_bundles))):
+                writer.write("echo \"at bundle {} / {}\"\n".format(bundleid, len(job_bundles) - 1))
+                for graph, dupid in bundle:
+                    writer.write("./autocorrelation_realworld {} {}/{} 1 {}/$SLURM_JOB_ID/{}_{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graph), outputdir, logfn(graph), typ, dupid, thins, minsnaps, maxsnaps, pus))
+                writer.write("wait\n")
+"""
+            for graphs in zip(Jobgraphs[::4], Jobgraphs[1::4], Jobgraphs[2::4], Jobgraphs[3::4]):
+                writer.write("./autocorrelation_realworld {} {}/{} 10 {}/$SLURM_JOB_ID/{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graphs[0]), outputdir, logfn(graphs[0]), typ, thins, minsnaps, maxsnaps, pus))
+                writer.write("./autocorrelation_realworld {} {}/{} 10 {}/$SLURM_JOB_ID/{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graphs[1]), outputdir, logfn(graphs[1]), typ, thins, minsnaps, maxsnaps, pus))
+                writer.write("./autocorrelation_realworld {} {}/{} 10 {}/$SLURM_JOB_ID/{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graphs[2]), outputdir, logfn(graphs[2]), typ, thins, minsnaps, maxsnaps, pus))
+                writer.write("./autocorrelation_realworld {} {}/{} 10 {}/$SLURM_JOB_ID/{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graphs[3]), outputdir, logfn(graphs[3]), typ, thins, minsnaps, maxsnaps, pus))
+                writer.write("wait\n")
+            for graph in Jobgraphs[4*(len(Jobgraphs)//4):]:
+                writer.write("./autocorrelation_realworld {} {}/{} 10 {}/$SLURM_JOB_ID/{}_{}_ {} --minsnaps {} --maxsnaps {} --pus {} &\n".format(typ, inputdir, fn(graph), outputdir, logfn(graph), typ, thins, minsnaps, maxsnaps, pus))
+"""
