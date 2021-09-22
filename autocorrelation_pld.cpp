@@ -135,7 +135,8 @@ int main(int argc, char *argv[]) {
     for (unsigned run = 0; run < runs; run++) {
         const int pu_id = omp_get_thread_num();
         std::cout << "# run " << run << std::endl;
-        std::mt19937_64 gen((seed ? pus == 1 : std::random_device{}()));
+        Aux::Random::setSeed(graphseed, true);
+        std::mt19937_64 gen((seed ? pus == 1 : Aux::Random::integer()));
 
         NetworKit::Graph g;
         bool done = false;
