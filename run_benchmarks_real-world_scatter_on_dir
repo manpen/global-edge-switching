@@ -1,0 +1,35 @@
+
+benchmark_executable="$1"
+
+bench_dir="benchmark-results"
+if ! test -d "$bench_dir"
+then
+ mkdir "$bench_dir"
+fi
+if ! test -d "$bench_dir/real-world_scatter" ; then
+ mkdir "$bench_dir/real-world_scatter"
+fi
+
+spe=10
+repeats=5
+
+category="$2"
+echo "$category"
+if test -d "$category" ; then
+ category_name="$(basename $category)"
+ if ! test -d "$bench_dir/real-world_scatter/$category_name" ; then
+  mkdir "$bench_dir/real-world_scatter/$category_name"
+ fi
+ for graph in "$category"/* ; do
+  if test -d "$graph" ; then
+   graph_name="$(basename $graph)"
+   graph_edges="$graph/""$graph_name.simp-undir-edges"
+   echo "Benchmarking robin on $graph_name"
+   bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_robin_""$spe""_1"
+   "$benchmark_executable" bench "$graph_edges" 1 "$repeats" robin "$spe" verbose >> "$bench_file"
+   echo "Benchmarking global-no-wait on $graph_name"
+   bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_global-no-wait_""$spe""_64"
+   "$benchmark_executable" bench "$graph_edges" 64 "$repeats" global-no-wait "$spe" verbose >> "$bench_file"
+  fi
+ done
+fi

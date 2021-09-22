@@ -20,7 +20,9 @@
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobalGaps.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalGaps.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
@@ -84,7 +86,9 @@ int main() {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalGaps>("parallel-global-gaps", graph, gen);
         run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
+        run_benchmark<AlgorithmParallelNaiveGlobalGaps>("parallel-global-gaps-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", graph, gen);

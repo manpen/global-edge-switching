@@ -22,8 +22,7 @@
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWait.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -32,25 +31,26 @@
 using namespace es;
 
 NetworKit::Graph read_graph(std::string filename) {
+    NetworKit::Graph graph;
     std::ifstream ifile{filename};
     std::string line;
-    getline(ifile, line);
-    node_t n = std::stoll(line.substr(2));
-    NetworKit::Graph graph(n);
     while (getline(ifile, line)) {
-        if (line.starts_with('%')) continue;
         size_t sep = line.find(',');
-        node_t u = std::stoll(line.substr(0, sep));
-        node_t v = std::stoll(line.substr(sep + 1));
-        graph.addEdge(u, v);
+        if (line.starts_with('%')) {
+            node_t n = std::stoll(line.substr(3, sep));
+            graph = NetworKit::Graph(n);
+        } else {
+            node_t u = std::stoll(line.substr(0, sep));
+            node_t v = std::stoll(line.substr(sep + 1));
+            graph.addEdge(u, v);
+        }
     }
     return graph;
 }
 
 void write_graph(const NetworKit::Graph& graph, std::string filename) {
     std::ofstream ofile{filename};
-    ofile << "% " << graph.numberOfNodes() << "\n";
-    ofile << "% " << graph.numberOfEdges() << "\n";
+    ofile << "%n=" << graph.numberOfNodes() << ",m=" << graph.numberOfEdges() << "\n";
     graph.forEdges([&](NetworKit::node u, NetworKit::node v){
         ofile << u << "," << v << "\n";
     });
@@ -124,7 +124,7 @@ void benchmark_on_file(int argc, const char** argv) {
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {
-            es = std::make_unique<AlgorithmParallelGlobalNoWaitV2>(graph);
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4>(graph);
         }
         init_time = timer.elapsedSeconds();
     }
@@ -146,8 +146,8 @@ void benchmark_on_file(int argc, const char** argv) {
             std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
             std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
         }
-        std::cout << "Runtime for 10m successful switches: " << run_time * (1. * switches * m / sucessful_switches) << "s \n";
-        std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (1. * switches * m / sucessful_switches) << "s \n";
+        std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
+        std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
         std::cout << std::endl;
     }
 }
