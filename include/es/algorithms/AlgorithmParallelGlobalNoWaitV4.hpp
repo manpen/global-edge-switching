@@ -2,6 +2,7 @@
 
 #include <random>
 #include <vector>
+#include <numeric>
 
 #include <es/EdgeDependenciesNoWaitV4.hpp>
 #include <es/RandomBits.hpp>
@@ -18,15 +19,55 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
     AlgorithmParallelGlobalNoWaitV4(const NetworKit::Graph &graph, double lazyness = 0.01, double load_factor = 2.0) //
         : AlgorithmBase(graph), edge_dependencies(graph.numberOfEdges(), load_factor), lazyness_(lazyness) {
         assert(0. <= lazyness && lazyness < 1.0);
-        edge_list_.reserve(graph.numberOfEdges());
         new_edge_list_.resize(graph.numberOfEdges());
 
-        graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
-            auto edge = to_edge(u, v);
-            assert(edge >> 63 == 0);
+        if (graph.numberOfEdges() < 1e6) {
+            edge_list_.reserve(graph.numberOfEdges());
+            graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
+                auto edge = to_edge(u, v);
+                assert(edge >> 63 == 0);
 
-            edge_list_.emplace_back(edge);
-        });
+                edge_list_.emplace_back(edge);
+            });
+        } else {
+            std::vector<size_t> local_counts(omp_get_max_threads());
+            std::vector<size_t> partial_sums(omp_get_max_threads());
+            edge_list_.resize(graph.numberOfEdges());
+
+            #pragma omp parallel
+            {
+                const auto tid = static_cast<size_t>(omp_get_thread_num());
+                const auto num_threads = static_cast<size_t>(omp_get_num_threads());
+                const auto n = graph.numberOfNodes();
+
+                size_t local_count = 0;
+                for(auto u = tid; u < n; u += num_threads) {
+                    for (auto v : graph.neighborRange(u)) {
+                        if (v > u) break;
+                        ++local_count;
+                    }
+                }
+                #pragma omp critical
+                local_counts[tid] = local_count;
+
+                #pragma omp barrier
+
+                #pragma omp single // implies barrier at end
+                std::partial_sum(begin(local_counts), end(local_counts), begin(partial_sums));
+
+                auto it = begin(edge_list_) + (partial_sums[tid] - local_count);
+                for(auto u = tid; u < n; u += num_threads) {
+                    for (auto v : graph.neighborRange(u)) {
+                        if (v > u) break;
+
+                        auto edge = to_edge(u, v);
+                        assert(edge >> 63 == 0);
+
+                        *(it++) = edge;
+                    }
+                }
+            }
+        }
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
