@@ -26,6 +26,7 @@
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
+#include <es/algorithms/AlgorithmNetworKit.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
