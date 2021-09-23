@@ -170,8 +170,13 @@ public:
         std::cout << "# performing switches" << std::endl;
         std::vector<size_t> successful_switches(s);
         size_t last_snapshot = 0;
+        size_t last_reported_snapshot = 0;
         for (size_t snapshotid = 0; snapshotid < s; snapshotid++) {
             const auto snapshot = snapshots[snapshotid];
+            if (last_reported_snapshot + min_chain_length / 10 < snapshot) {
+                std::cout << "# snapshot " << snapshot << " / " << min_chain_length << std::endl;
+                last_reported_snapshot = snapshot;
+            }
 
             // compute requested number of switches, filling the gap from last snapshot to this snapshot
             const auto factor = snapshot - last_snapshot;
