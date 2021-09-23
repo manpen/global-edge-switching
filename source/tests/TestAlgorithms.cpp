@@ -12,6 +12,7 @@
 #include <es/algorithms/AlgorithmSet.hpp>
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
+#include <es/algorithms/AlgorithmGlobal.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 
@@ -70,6 +71,7 @@ int main() {
                 run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
+                run_test<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
                 run_test<AlgorithmParallelNaive>("parallel-naive", n, target_m, gen);
                 run_test<AlgorithmParallelNaiveGlobal>("parallel-naive-global", n, target_m, gen);
 

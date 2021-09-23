@@ -25,6 +25,7 @@
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <es/algorithms/AlgorithmNetworKit.hpp>
 #include <es/algorithms/AlgorithmGenGraph.hpp>
+#include <es/algorithms/AlgorithmGlobal.hpp>
 
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
@@ -132,6 +133,8 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmNetworKit>(graph);
         } else if (algo == "gengraph") {
             es = std::make_unique<AlgorithmGenGraph>(graph);
+        } else if (algo == "seq-global") {
+            es = std::make_unique<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
         }
         init_time = timer.elapsedSeconds();
     }
