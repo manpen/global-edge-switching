@@ -27,6 +27,7 @@
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <es/algorithms/AlgorithmNetworKit.hpp>
+#include <es/algorithms/AlgorithmGenGraph.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -61,7 +62,7 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
+        std::cout << label << ": Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n\n";
     }
 }
 
@@ -85,6 +86,8 @@ int main() {
 
     for (int repeat = 0; repeat < 5; ++repeat) {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        run_benchmark<AlgorithmGenGraph>("gengraph", graph, gen);
+        run_benchmark<AlgorithmNetworKit>("nk", graph, gen);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
         run_benchmark<AlgorithmParallelGlobalGaps>("parallel-global-gaps", graph, gen);

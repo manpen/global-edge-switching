@@ -1,8 +1,5 @@
 #pragma once
 
-#include <google/dense_hash_set>
-
-#include <es/RandomBits.hpp>
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <networkit/randomization/EdgeSwitching.hpp>
 
