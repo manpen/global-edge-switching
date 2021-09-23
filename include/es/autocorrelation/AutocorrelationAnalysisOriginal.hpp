@@ -203,7 +203,7 @@ public:
             // perform switchings
             Algo es(curr_graph);
             successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
-            auto edgelist = es.get_edgelist();
+            const auto &edgelist = es.get_edgelist();
 
             // sort edgelist
             std::vector<std::pair<NetworKit::node, NetworKit::node>> pairs_edgelist;
@@ -354,7 +354,7 @@ public:
                       << (true_n)*(true_n - 1)/ 2 - eval_all.num_independent - eval_all.num_non_independent << ","
                       << graphseed << ","
                       << seed << "\n";
-            out_file  << "AUTOCORR,"
+            out_file  << "     NEW,"
                       << algo_label << ","
                       << graph_label << ","
                       << true_n << ","
@@ -370,7 +370,7 @@ public:
                       << eval_all.num_non_independent << ","
                       << eval_orig_sparse.num_independent << ","
                       << eval_orig_sparse.num_non_independent << ","
-                      << (true_n)*(true_n - 1)/ 2 - eval_all.num_independent - eval_all.num_non_independent << ","
+                      << (true_n)*(true_n - 1)/ 2 - eval_orig_sparse.num_independent - eval_orig_sparse.num_non_independent << ","
                       << graphseed << ","
                       << seed << "\n";
         }
