@@ -127,31 +127,7 @@ public:
         for (NetworKit::node node = 0; node < n; node++) true_n += (graph.degree(node) > 0);
         std::vector<size_t> snapshots;
         std::copy(snapshots_set.begin(), snapshots_set.end(), std::back_inserter(snapshots));
-
-        // data structure for the thinnings contains
-        // - per possible edge a transition counter
-        // - last considered snapshot
-        const auto num_possible_edges = n*(n - 1)/2;
-        std::vector<size_t> t_prev_snapshots(thinnings.size());
-        std::vector<size_t> t_proc_snapshots(thinnings.size());
-        std::vector<std::vector<transition_counter_t>> t_edge_transitions;
-        std::vector<std::vector<bool>> t_edge_bits;
-        t_edge_transitions.reserve(thinnings.size());
-        t_edge_bits.reserve(thinnings.size());
-        for (size_t tid = 0; tid < thinnings.size(); tid++) {
-            t_edge_transitions.emplace_back(num_possible_edges);
-            t_edge_bits.emplace_back(num_possible_edges);
-        }
-        std::vector<size_t> orig_bit_indices;
-        orig_bit_indices.reserve(graph.numberOfEdges());
-        graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
-            orig_bit_indices.push_back(get_index(es::to_edge(u, v)));
-            for (auto &edge_bits : t_edge_bits) {
-                assert(get_index(es::to_edge(u, v)) < t_edge_bits[0].size());
-                edge_bits[get_index(es::to_edge(u, v))] = true;
-            }
-        });
-
+        
         // data structure for the thinnings contains
         // - per original edge a transition counter
         // - last considered snapshot
@@ -163,13 +139,14 @@ public:
         st_edge_bits.reserve(thinnings.size());
         for (size_t tid = 0; tid < thinnings.size(); tid++) {
             st_edge_transitions.emplace_back(m);
-            st_edge_bits.emplace_back(m);
+            st_edge_bits.emplace_back(m, true);
         }
         std::vector<std::pair<NetworKit::node, NetworKit::node>> original_edges;
         original_edges.reserve(m);
         graph.forEdges([&](NetworKit::node u, NetworKit:: node v) {
-            std::pair<NetworKit::node, NetworKit::node> edge((u ? u < v : v), (v ? u < v : u));
-            original_edges.push_back(edge);
+            const auto ou = std::min(u, v);
+            const auto ov = std::max(u, v);
+            original_edges.emplace_back(ou, ov);
         });
         std::sort(original_edges.begin(), original_edges.end());
 
@@ -210,7 +187,9 @@ public:
             pairs_edgelist.reserve(m);
             for (const auto &edge : edgelist) {
                 auto [u, v] = es::to_nodes(edge);
-                pairs_edgelist.emplace_back((u ? u < v : v), (v ? u < v : u));
+                const auto cu = std::min(u, v);
+                const auto cv = std::max(u, v);
+                pairs_edgelist.emplace_back(u, v);
             }
             std::sort(pairs_edgelist.begin(), pairs_edgelist.end());
 
@@ -218,9 +197,9 @@ public:
             std::vector<size_t> relevant_thinning_ids;
             relevant_thinning_ids.reserve(thinnings.size());
             for (size_t tid = 0; tid < thinnings.size(); tid++) {
-                const auto prev_snapshot = t_prev_snapshots[tid];
+                const auto prev_snapshot = st_prev_snapshots[tid];
                 const auto thinning = thinnings[tid];
-                const auto proc_snapshots = t_proc_snapshots[tid];
+                const auto proc_snapshots = st_proc_snapshots[tid];
                 if ((prev_snapshot + thinning == snapshot) && (proc_snapshots < max_snapshots_per_thinning)) {
                     relevant_thinning_ids.push_back(tid);
                 }
@@ -240,20 +219,35 @@ public:
 
             std::vector<bool> edgelist_bits(m);
             auto eit_curr = pairs_edgelist.begin();
-            for (size_t eid = 0; eid < m; ++eid) {
+            size_t eid = 0;
+            for (; eid < m;) {
+                if (eit_curr == pairs_edgelist.end())
+                    break;
                 const auto oe = original_edges[eid];
-                // move edges of current graph
-                for (; oe > *eit_curr; ++eit_curr);
+
+                // move edge of current graph
+                if (oe > *eit_curr) {
+                    ++eit_curr;
+                    continue;
+                }
                 // original edge does not exist in current graph
                 if (oe < *eit_curr) {
                     update_edge(eid, false);
                     edgelist_bits[eid] = false;
+                    eid++;
+                    continue;
                 }
                 // original edge exists in current graph
                 if (oe == *eit_curr) {
                     update_edge(eid, true);
                     edgelist_bits[eid] = true;
+                    ++eit_curr;
+                    eid++;
                 }
+            }
+            for (size_t tail = eid; tail < m; ++tail) {
+                 update_edge(eid, false);
+                 edgelist_bits[eid] = false;
             }
 
             // update data structures
@@ -262,36 +256,6 @@ public:
                 st_prev_snapshots[tid] = snapshot;
                 st_proc_snapshots[tid]++;
                 st_edge_bits[tid] = edgelist_bits;
-            }
-
-            // copy edgelist to bit representation
-            std::vector<bool> sw_edge_bits(num_possible_edges);
-            for (const auto &edge : edgelist) {
-                sw_edge_bits[get_index(edge)] = true;
-            }
-
-            // iterate over different thinnings and perform updates
-            for (size_t tid = 0; tid < thinnings.size(); tid++) {
-                const auto prev_snapshot = t_prev_snapshots[tid];
-                const auto thinning = thinnings[tid];
-                const auto proc_snapshots = t_proc_snapshots[tid];
-                if ((prev_snapshot + thinning == snapshot) && (proc_snapshots < max_snapshots_per_thinning)) {
-                    const auto &edge_bits = t_edge_bits[tid];
-                    auto &edge_transitions = t_edge_transitions[tid];
-                    assert(edge_bits.size() == sw_edge_bits.size());
-
-
-                    for (size_t bitid = 0; bitid < edge_bits.size(); bitid++) {
-                        const auto prev = edge_bits[bitid];
-                        const auto next = sw_edge_bits[bitid];
-                        edge_transitions[bitid].update(prev, next);
-                    }
-
-                    // update for this thinning last considered snapshot and edgebits
-                    t_prev_snapshots[tid] = snapshot;
-                    t_edge_bits[tid] = sw_edge_bits;
-                    t_proc_snapshots[tid]++;
-                }
             }
 
             last_snapshot = snapshot;
@@ -317,24 +281,11 @@ public:
             for (size_t sid = 0; sid <= thinning_snapshots[tid].back(); sid++)
                 thinning_successful_switches += successful_switches[sid];
 
-            thinning_counter_t eval_all;
-            thinning_counter_t eval_orig;
             thinning_counter_t eval_orig_sparse;
-            const auto &edge_transitions = t_edge_transitions[tid];
-            for (const auto &edge_transition : edge_transitions) {
-                const double delta_BIC = edge_transition.compute_delta_BIC();
-                eval_all.update(edge_transition.is_none(), delta_BIC);
-            }
-            for (const auto &orig_bit_index : orig_bit_indices) {
-                const auto orig_edge_transition = edge_transitions[orig_bit_index];
-                const double orig_delta_BIC = orig_edge_transition.compute_delta_BIC();
-                eval_orig.update(orig_edge_transition.is_none(), orig_delta_BIC);
-            }
             for (const auto &orig_sparse_edge_transition : st_edge_transitions[tid]) {
                 const double orig_sparse_delta_BIC = orig_sparse_edge_transition.compute_delta_BIC();
                 eval_orig_sparse.update(false, orig_sparse_delta_BIC);
             }
-
             out_file  << "AUTOCORR,"
                       << algo_label << ","
                       << graph_label << ","
@@ -345,29 +296,10 @@ public:
                       << max_snapshots_per_thinning << ","
                       << switches_per_edge << ","
                       << thinnings[tid] << ","
-                      << t_proc_snapshots[tid] << ","
+                      << st_proc_snapshots[tid] << ","
                       << thinning_successful_switches << ","
-                      << eval_all.num_independent << ","
-                      << eval_all.num_non_independent << ","
-                      << eval_orig.num_independent << ","
-                      << eval_orig.num_non_independent << ","
-                      << (true_n)*(true_n - 1)/ 2 - eval_all.num_independent - eval_all.num_non_independent << ","
-                      << graphseed << ","
-                      << seed << "\n";
-            out_file  << "     NEW,"
-                      << algo_label << ","
-                      << graph_label << ","
-                      << true_n << ","
-                      << m << ","
-                      << min_chain_length << ","
-                      << min_snapshots_per_thinning << ","
-                      << max_snapshots_per_thinning << ","
-                      << switches_per_edge << ","
-                      << thinnings[tid] << ","
-                      << t_proc_snapshots[tid] << ","
-                      << thinning_successful_switches << ","
-                      << eval_all.num_independent << ","
-                      << eval_all.num_non_independent << ","
+                      << 0 << ","
+                      << 0 << ","
                       << eval_orig_sparse.num_independent << ","
                       << eval_orig_sparse.num_non_independent << ","
                       << (true_n)*(true_n - 1)/ 2 - eval_orig_sparse.num_independent - eval_orig_sparse.num_non_independent << ","
