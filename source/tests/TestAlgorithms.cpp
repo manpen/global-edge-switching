@@ -30,8 +30,8 @@ void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64
     Algo es(input_graph);
 
     {
-        const auto requested_swichtes = 2 * target_m;
-        const auto sucessful_switches = es.do_switches(gen, requested_swichtes);
+        const auto requested_switches = 2 * target_m;
+        es.do_switches(gen, requested_switches);
     }
 
     auto output_graph = es.get_graph();
@@ -71,6 +71,7 @@ int main() {
             for (int repeat = 0; repeat < 100; ++repeat) {
                 run_test<AlgorithmParallelGlobalNoWaitV4>("parallel-global-nowait-v4", n, target_m, gen);
                 run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
+                run_test<AlgorithmVectorRobin<true>>("global-robin", n, target_m, gen);
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);

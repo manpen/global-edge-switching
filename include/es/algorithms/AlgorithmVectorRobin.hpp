@@ -43,7 +43,7 @@ public:
                 auto num_lazy = std::binomial_distribution<size_t>{num_switch_in_global_step, lazyness_}(gen);
 
                 size_t i = -2;
-                successful_switches += do_n_switches<kPrefetchSwitches>(num_switch_in_global_step - num_lazy, [&] {
+                successful_switches += do_n_switches<kPrefetchSwitches, true>(num_switch_in_global_step - num_lazy, [&] {
                     i += 2;
                     return std::make_tuple(i, i + 1, fair_coin(gen));
                 });
@@ -75,7 +75,7 @@ public:
             for (size_t i = 0; i < kPrefetchIndices; ++i)
                 sample_and_prefetch();
 
-            return do_n_switches<kPrefetchSwitches>(num_switches, [&] {
+            return do_n_switches<kPrefetchSwitches, false>(num_switches, [&] {
                 auto index1 = sample_and_prefetch();
                 auto index2 = sample_and_prefetch();
                 return std::make_tuple(index1, index2, index1 < index2);
@@ -101,7 +101,7 @@ private:
 
     // carries out num_switches where the edge index and direction is queried using the
     // nextDescriptor callback. Returns the number of successful switches
-    template<size_t kPrefetchSwitches, typename NextDescriptor>
+    template<size_t kPrefetchSwitches, bool kGlobal, typename NextDescriptor>
     size_t do_n_switches(size_t num_switches, NextDescriptor nextDescriptor) {
         // we split the switch into two steps: first we compute the hashes and prefetch
         // the hash set's buckets in the constructor. The actual switch is done in the
@@ -120,8 +120,16 @@ private:
 
             Switch() : failed{true} {}
 
-            Switch(edge_t *e1, edge_t *e2, bool direction, Set *edge_set) : e1(e1), e2(e2), e1_copy(*e1), e2_copy(*e2),
-                                                                            direction(direction), edge_set(edge_set) {
+            Switch(edge_t *e1, edge_t *e2, bool direction, Set *edge_set) : e1(e1), e2(e2), direction(direction), edge_set(edge_set) {
+#ifdef NDEBUG
+                if (!kGlobal)
+#endif
+                {
+                    e1_copy = *e1;
+                    e2_copy = *e2;
+                }
+
+
                 prepare();
             }
 
@@ -148,8 +156,12 @@ private:
             }
 
             bool commit() {
-                if (TLX_UNLIKELY(e1_copy != *e1 || e2_copy != *e2))
+                if (TLX_UNLIKELY(!kGlobal && (e1_copy != *e1 || e2_copy != *e2))) {
                     prepare();
+                } else {
+                    assert(e1_copy == *e1);
+                    assert(e2_copy == *e2);
+                }
 
                 if (failed) return false;
 
