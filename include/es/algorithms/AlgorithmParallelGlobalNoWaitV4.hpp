@@ -43,7 +43,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                 size_t local_count = 0;
                 for(auto u = tid; u < n; u += num_threads) {
                     for (auto v : graph.neighborRange(u)) {
-                        if (v > u) break;
+                        if (v > u) continue;
                         ++local_count;
                     }
                 }
@@ -54,11 +54,12 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
 
                 #pragma omp single // implies barrier at end
                 std::partial_sum(begin(local_counts), end(local_counts), begin(partial_sums));
+                assert(partial_sums.back() == graph.numberOfEdges());
 
                 auto it = begin(edge_list_) + (partial_sums[tid] - local_count);
                 for(auto u = tid; u < n; u += num_threads) {
                     for (auto v : graph.neighborRange(u)) {
-                        if (v > u) break;
+                        if (v > u) continue;
 
                         auto edge = to_edge(u, v);
                         assert(edge >> 63 == 0);
