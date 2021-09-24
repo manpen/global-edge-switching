@@ -60,6 +60,10 @@ public:
             size_t prefetch_i = 0;
             auto sample_and_prefetch = [&] {
                 auto i = shuffle::nearlydivisionless(m, gen);
+                if (kPrefetchIndices == 0)
+                    return i;
+
+                assert(i < m);
                 __builtin_prefetch(edge_list_.data() + i, 1, 1);
 
                 auto ret = prefetch_cache[prefetch_i];
@@ -105,17 +109,23 @@ private:
         // cpu to fetch the data.
         struct Switch {
             edge_t *e1, *e2;
-            edge_t e3, e4;
-
-            size_t hash_e1, hash_e2, hash_e3, hash_e4;
-
+            edge_t e1_copy, e2_copy;
+            bool direction;
             Set *edge_set;
 
+
+            edge_t e3, e4;
+            size_t hash_e1, hash_e2, hash_e3, hash_e4;
             bool failed;
 
             Switch() : failed{true} {}
 
-            Switch(edge_t *e1, edge_t *e2, bool direction, Set *edge_set) : e1(e1), e2(e2), edge_set(edge_set) {
+            Switch(edge_t *e1, edge_t *e2, bool direction, Set *edge_set) : e1(e1), e2(e2), e1_copy(*e1), e2_copy(*e2),
+                                                                            direction(direction), edge_set(edge_set) {
+                prepare();
+            }
+
+            void prepare() {
                 auto[u, v] = to_nodes(*e1);
                 auto[x, y] = to_nodes(*e2);
 
@@ -138,6 +148,9 @@ private:
             }
 
             bool commit() {
+                if (TLX_UNLIKELY(e1_copy != *e1 || e2_copy != *e2))
+                    prepare();
+
                 if (failed) return false;
 
                 auto ins1 = edge_set->insert_hash(hash_e3, e3);
@@ -163,7 +176,7 @@ private:
         // invoke the switching class
 
         size_t successful_switches = 0;
-        if (num_switches < kPrefetchSwitches) {
+        if (!kPrefetchSwitches || num_switches < kPrefetchSwitches) {
             // base case without prefetch
             for (size_t i = 0; i < num_switches; ++i) {
                 auto[index1, index2, direction] = nextDescriptor();
@@ -187,6 +200,7 @@ private:
 
             for (size_t i = 0; i < kPrefetchSwitches; ++i)
                 prefetch_switch();
+            assert(prefetch_cursor == 0);
 
             for (size_t i = kPrefetchSwitches; i < num_switches; ++i) {
                 successful_switches += prefetch_pipeline[prefetch_cursor].commit();

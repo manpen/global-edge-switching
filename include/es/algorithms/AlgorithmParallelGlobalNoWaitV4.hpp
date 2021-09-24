@@ -96,7 +96,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             new_edge_list_.swap(edge_list_);
 
 #ifndef NDEBUG
-            {
+            if (false) {
                 auto sorted = edge_list_;
                 std::sort(sorted.begin(), sorted.end());
                 auto copy = sorted;

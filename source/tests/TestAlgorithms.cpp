@@ -13,8 +13,12 @@
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmGlobal.hpp>
+#include <es/algorithms/AlgorithmVectorRobin.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
+
+#include <tlx/die.hpp>
 
 using namespace es;
 
@@ -36,12 +40,10 @@ void run_test(std::string_view label, node_t n, edge_t target_m, std::mt19937_64
     edge_t num_edges = 0;
     for (node_t i = 0; i < n; ++i) {
         num_edges += input_graph.degree(i);
-        if (input_graph.degree(i) != output_graph.degree(i))
-            abort();
+        tlx_die_unequal(input_graph.degree(i), output_graph.degree(i));
     }
 
-    if (num_edges / 2 != input_graph.numberOfEdges())
-        abort();
+    tlx_die_unequal(num_edges / 2, input_graph.numberOfEdges());
 
     // check that there are no self-loops or multi-edges
     std::unordered_set<edge_t> edges;
@@ -67,6 +69,8 @@ int main() {
             edge_t target_m = n * d;
 
             for (int repeat = 0; repeat < 100; ++repeat) {
+                run_test<AlgorithmParallelGlobalNoWaitV4>("parallel-global-nowait-v4", n, target_m, gen);
+                run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
                 run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
