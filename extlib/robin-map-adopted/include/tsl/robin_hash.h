@@ -731,14 +731,7 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
 
   template <typename P>
   std::pair<iterator, bool> insert(P&& value) {
-      const auto key = KeySelect()(value);
-      const std::size_t hash = hash_key(key);
-      return insert_impl(hash, std::move(key), std::forward<P>(value));
-  }
-
-  template <typename P>
-  std::pair<iterator, bool> insert_hash(std::size_t hash, P&& value) {
-      return insert_impl(hash, KeySelect()(value), std::forward<P>(value));
+    return insert_impl(KeySelect()(value), std::forward<P>(value));
   }
 
   template <typename P>
@@ -805,8 +798,7 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
 
   template <class K, class... Args>
   std::pair<iterator, bool> try_emplace(K&& key, Args&&... args) {
-    const std::size_t hash = hash_key(key);
-    return insert_impl(hash, key, std::piecewise_construct,
+    return insert_impl(key, std::piecewise_construct,
                        std::forward_as_tuple(std::forward<K>(key)),
                        std::forward_as_tuple(std::forward<Args>(args)...));
   }
@@ -942,10 +934,10 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
   }
 
   template <typename Gen>
-  const_iterator sample(Gen gen) const {
-      const auto n = bucket_count();
+  const_iterator sample(Gen& gen) const {
+      std::uniform_int_distribution<size_t> distr{0, bucket_count() - 1};
       while(true) {
-          const auto index = gen(n);
+          const auto index = distr(gen);
           if (m_buckets[index].empty()) continue;
 
           return const_iterator(m_buckets + index);
@@ -1003,19 +995,6 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
     } else {
       return 0;
     }
-  }
-
-  template <class K>
-  std::size_t prefetch(const K& key) const {
-    auto hash = hash_key(key);
-    prefetch_impl(hash);
-    return hash;
-  }
-
-  template <class K>
-  std::size_t prefetch(const K& key, std::size_t hash) const {
-    prefetch_impl(hash);
-    return hash;
   }
 
   template <class K>
@@ -1206,11 +1185,6 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
     return cend();
   }
 
-  void prefetch_impl(std::size_t hash) const {
-    std::size_t ibucket = bucket_for_hash(hash);
-    __builtin_prefetch(&m_buckets[ibucket], 1, 1);
-  }
-
   void erase_from_bucket(iterator pos) {
     pos.m_bucket->clear();
     m_nb_elements--;
@@ -1242,8 +1216,10 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
   }
 
   template <class K, class... Args>
-  std::pair<iterator, bool> insert_impl(const std::size_t hash, const K& key,
+  std::pair<iterator, bool> insert_impl(const K& key,
                                         Args&&... value_type_args) {
+    const std::size_t hash = hash_key(key);
+
     std::size_t ibucket = bucket_for_hash(hash);
     distance_type dist_from_ideal_bucket = 0;
 

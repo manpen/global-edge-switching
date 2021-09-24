@@ -12,7 +12,7 @@ find_package(OpenMP REQUIRED)
 
 add_subdirectory(extlib/hopscotch-map)
 add_subdirectory(extlib/networkit)
-add_subdirectory(extlib/robin-map)
+add_subdirectory(extlib/robin-map-adopted)
 add_subdirectory(extlib/range-v3)
 
 add_library(libedgeswitch INTERFACE)

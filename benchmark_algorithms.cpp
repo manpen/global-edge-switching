@@ -23,9 +23,11 @@
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
+#include <es/algorithms/AlgorithmVectorRobin.hpp>
 #include <es/algorithms/AlgorithmNetworKit.hpp>
 #include <es/algorithms/AlgorithmGenGraph.hpp>
 #include <es/algorithms/AlgorithmGlobal.hpp>
+
 
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
@@ -121,6 +123,10 @@ void benchmark_on_file(int argc, const char** argv) {
         incpwl::ScopedTimer timer;
         if (algo == "robin") {
             es = std::make_unique<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
+        } else if (algo == "robin-v2") {
+            es = std::make_unique<AlgorithmVectorRobin<false>>(graph);
+        } else if (algo == "global-robin") {
+            es = std::make_unique<AlgorithmVectorRobin<true>>(graph);
         } else if (algo == "naive") {
             es = std::make_unique<AlgorithmParallelNaive>(graph);
         } else if (algo == "global-naive") {
