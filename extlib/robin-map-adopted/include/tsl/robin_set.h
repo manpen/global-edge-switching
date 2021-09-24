@@ -360,7 +360,15 @@ class robin_set {
     return m_ht.find(key, precalculated_hash);
   }
 
-  /**
+  std::size_t prefetch(const Key& key) const {
+    return m_ht.prefetch(key);
+  }
+
+  std::size_t prefetch(const Key& key, std::size_t precalculated_hash) const {
+    return m_ht.prefetch(key, precalculated_hash);
+  }
+
+    /**
    * This overload only participates in the overload resolution if the typedef
    * KeyEqual::is_transparent exists. If so, K must be hashable and comparable
    * to Key.
@@ -551,7 +559,7 @@ class robin_set {
   void reserve(size_type count_) { m_ht.reserve(count_); }
 
   template <typename Gen>
-  const_iterator sample(Gen &gen) const {return m_ht.template sample(gen); }
+  const_iterator sample(Gen &&gen) const {return m_ht.template sample(std::forward<Gen>(gen)); }
 
 
   /*
