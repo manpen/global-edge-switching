@@ -211,6 +211,10 @@ class robin_set {
     return m_ht.insert(value);
   }
 
+  std::pair<iterator, bool> insert_hash(std::size_t hash, const value_type& value) {
+        return m_ht.insert_hash(hash, value);
+  }
+
   std::pair<iterator, bool> insert(value_type&& value) {
     return m_ht.insert(std::move(value));
   }

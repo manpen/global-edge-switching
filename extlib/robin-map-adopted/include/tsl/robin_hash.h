@@ -737,7 +737,7 @@ class robin_hash : private Hash, private KeyEqual, private GrowthPolicy {
   }
 
   template <typename P>
-  std::pair<iterator, bool> insert(std::size_t hash, P&& value) {
+  std::pair<iterator, bool> insert_hash(std::size_t hash, P&& value) {
       return insert_impl(hash, KeySelect()(value), std::forward<P>(value));
   }
 
