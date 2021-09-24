@@ -28,6 +28,7 @@
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
 #include <es/algorithms/AlgorithmNetworKit.hpp>
 #include <es/algorithms/AlgorithmGenGraph.hpp>
+#include <es/algorithms/AlgorithmGlobal.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -88,6 +89,7 @@ int main() {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
         run_benchmark<AlgorithmGenGraph>("gengraph", graph, gen);
         run_benchmark<AlgorithmNetworKit>("nk", graph, gen);
+        run_benchmark<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("global", graph, gen);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
         run_benchmark<AlgorithmParallelGlobalGaps>("parallel-global-gaps", graph, gen);
