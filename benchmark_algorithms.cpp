@@ -122,8 +122,6 @@ void benchmark_on_file(int argc, const char** argv) {
               << "repeats=" << repeats << "\n"
               << "timeout=" << timeout << "\n" << std::endl;
 
-    omp_set_num_threads(threads);
-
     std::unique_ptr<AlgorithmBase> es;
     double init_time;
     {
@@ -170,6 +168,7 @@ void benchmark_on_file(int argc, const char** argv) {
 
         std::thread benchmarking_thread([&]() {
             incpwl::ScopedTimer timer;
+            omp_set_num_threads(threads);
             const edge_t m = graph.numberOfEdges();
             const auto requested_switches = switches * m;
             const auto sucessful_switches = es->do_switches(gen, requested_switches);
