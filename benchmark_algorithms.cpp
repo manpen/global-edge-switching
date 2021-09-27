@@ -8,6 +8,10 @@
 #include <string_view>
 #include <functional>
 
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
 #include <tsl/hopscotch_set.h>
 #include <tsl/robin_set.h>
 
@@ -105,15 +109,17 @@ void benchmark_on_file(int argc, const char** argv) {
     std::string algo = argc > 5 ? argv[5] : "global-no-wait";
     size_t switches = argc > 6 ? std::stoi(argv[6]) : 10;
     bool detailed = argc > 7 ? std::string(argv[7]) == "verbose" : false;
+    unsigned timeout = argc > 8 ? std::stoi(argv[8]) : 0;
 
-    std::cout << "Starting experiment with parameters" << std::endl
-              << "algo=" << algo << std::endl
-              << "switches=" << switches << "m" << std::endl
-              << "file=" << filename << std::endl
-              << "n=" << graph.numberOfNodes() << std::endl
-              << "m=" << graph.numberOfEdges() << std::endl
-              << "p=" << threads << std::endl
-              << "repeats=" << repeats << std::endl << std::endl;
+    std::cout << "Starting experiment with parameters\n"
+              << "algo=" << algo << "\n"
+              << "switches=" << switches << "m" << "\n"
+              << "file=" << filename << "\n"
+              << "n=" << graph.numberOfNodes() << "\n"
+              << "m=" << graph.numberOfEdges() << "\n"
+              << "p=" << threads << "\n"
+              << "repeats=" << repeats << "\n"
+              << "timeout=" << timeout << "\n" << std::endl;
 
     omp_set_num_threads(threads);
 
@@ -147,24 +153,44 @@ void benchmark_on_file(int argc, const char** argv) {
 
     std::mt19937_64 gen{0};
     while (repeats--) {
-        incpwl::ScopedTimer timer;
-        const edge_t m = graph.numberOfEdges();
-        const auto requested_switches = switches * m;
-        const auto sucessful_switches = es->do_switches(gen, requested_switches);
-        double run_time = timer.elapsedSeconds();
-        if (detailed) {
-            std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-            std::cout << "Runtime: " << run_time << "s\n";
-            std::cout << "Initialization time: " << init_time << "s \n";
-            std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
-            std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
-            std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
+        std::mutex m;
+        std::condition_variable cv;
+        int retValue;
+
+        std::thread benchmarking_thread([&]() {
+            incpwl::ScopedTimer timer;
+            const edge_t m = graph.numberOfEdges();
+            const auto requested_switches = switches * m;
+            const auto sucessful_switches = es->do_switches(gen, requested_switches);
+            double run_time = timer.elapsedSeconds();
+            if (detailed) {
+                std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
+                std::cout << "Runtime: " << run_time << "s\n";
+                std::cout << "Initialization time: " << init_time << "s \n";
+                std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
+                std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
+                std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
+                std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
+                std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
+            }
+            std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
+            std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
+            std::cout << std::endl;
+            cv.notify_one();
+        });
+
+
+        // implement timeout
+        if (timeout) {
+            benchmarking_thread.detach();
+            std::unique_lock<std::mutex> l(m);
+            if(cv.wait_for(l, std::chrono::seconds(timeout)) == std::cv_status::timeout) {
+                std::cout << "Timeout after " << timeout << "s" << std::endl;
+                abort();
+            }
+        } else {
+            benchmarking_thread.join();
         }
-        std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
-        std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
-        std::cout << std::endl;
     }
 }
 
