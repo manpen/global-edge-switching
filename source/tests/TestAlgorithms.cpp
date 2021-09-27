@@ -69,7 +69,7 @@ int main() {
             edge_t target_m = n * d;
 
             for (int repeat = 0; repeat < 100; ++repeat) {
-                run_test<AlgorithmParallelGlobalNoWaitV4>("parallel-global-nowait-v4", n, target_m, gen);
+                run_test<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-nowait-v4", n, target_m, gen);
                 run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
                 run_test<AlgorithmVectorRobin<true>>("global-robin", n, target_m, gen);
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);

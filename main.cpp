@@ -97,7 +97,7 @@ int main() {
         run_benchmark<AlgorithmParallelNaiveGlobalGaps>("parallel-global-gaps-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
-        run_benchmark<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-no-wait-v4", graph, gen);
 
         std::cout << "\n";
     }
