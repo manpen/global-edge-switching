@@ -13,9 +13,10 @@ public:
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+        auto affected_before = algo_.getNumberOfAffectedEdges();
         algo_.setNumberOfSwitchesPerEdge(static_cast<double>(num_switches) / num_edges_);
         algo_.run();
-        return algo_.getNumberOfAffectedEdges() / 2;
+        return (algo_.getNumberOfAffectedEdges() - affected_before) / 2;
     }
 
     NetworKit::Graph get_graph() override {
