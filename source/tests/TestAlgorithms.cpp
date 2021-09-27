@@ -73,7 +73,7 @@ int main() {
                 run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
                 run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
                 run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
-                run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+                //run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
                 run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
                 run_test<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
                 run_test<AlgorithmParallelNaive>("parallel-naive", n, target_m, gen);
