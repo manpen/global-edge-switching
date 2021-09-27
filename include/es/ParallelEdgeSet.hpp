@@ -29,6 +29,8 @@ public:
     static constexpr size_t kBitsPerNode = 28;
 #endif
 
+    using hint_t = iterator_type;
+
     static constexpr size_t kBitsPerPayload = 2 * kBitsPerNode;
 
     static constexpr value_type kEmpty = -1;
@@ -49,15 +51,30 @@ public:
 
     ParallelEdgeSet &operator=(ParallelEdgeSet &&) = default;
 
-    // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
-    // the second entry returns a pointer if the bucket could be locked
+    hint_t prefetch(node_type a, node_type b) const noexcept {
+        auto reference_payload = build_bucket(a, b, 0);
+        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
+        auto it = data_begin_ + bucket;
+
+        __builtin_prefetch(it, 1, 1);
+        //__builtin_prefetch(it + 2, 1, 1);
+
+        return it;
+    }
+
     [[nodiscard]] std::pair<bool, iterator_type> acquire(node_type a, node_type b, unsigned tid) noexcept {
+        auto reference_payload = build_bucket(a, b, 0);
+        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
+        auto it = data_begin_ + bucket;
+        return acquire(it, a, b, tid);
+    }
+
+        // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
+    // the second entry returns a pointer if the bucket could be locked
+    [[nodiscard]] std::pair<bool, iterator_type> acquire(hint_t it, node_type a, node_type b, unsigned tid) noexcept {
         auto reference_unlocked = build_bucket(a, b);
         auto reference_locked   = build_bucket(a, b, tid);
         auto reference_payload  = get_payload(reference_unlocked);
-
-        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
-        auto it = data_begin_ + bucket;
 
         while (true) {
             auto value = reference_unlocked;
@@ -83,6 +100,13 @@ public:
     [[nodiscard]] iterator_type insert(node_type a, node_type b, unsigned tid = -1) noexcept {
         const auto reference_locked = build_bucket(a, b, tid);
         return insert(reference_locked);
+    }
+
+    [[nodiscard]] iterator_type insert(hint_t hint, node_type a, node_type b, unsigned tid = -1) noexcept {
+        const auto reference_locked = build_bucket(a, b, tid);
+        const auto reference_payload = get_payload(reference_locked);
+
+        return insert(hint, reference_payload, reference_locked);
     }
 
     void release(iterator_type it) {
@@ -212,6 +236,11 @@ private:
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
 
+        return insert<EnsureUnique>(it, reference_payload, reference_locked);
+    }
+
+    template <bool EnsureUnique = true>
+    iterator_type insert(iterator_type it, value_type reference_payload, value_type reference_locked) noexcept {
         constexpr auto first_try = kEmpty;
         constexpr auto second_try = (first_try == kEmpty) ? kDeleted : kEmpty;
         value_type value_at_it = first_try;

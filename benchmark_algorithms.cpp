@@ -24,6 +24,7 @@
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveV2.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
@@ -138,6 +139,9 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmVectorRobin<true, false>>(graph);
         } else if (algo == "naive") {
             es = std::make_unique<AlgorithmParallelNaive>(graph);
+        } else if (algo == "naive-v2") {
+            es = std::make_unique<AlgorithmParallelNaiveV2>(graph);
+            static_cast<AlgorithmParallelNaiveV2*>(es.get())->enable_logging();
         } else if (algo == "global-naive") {
             es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
         } else if (algo == "global") {
