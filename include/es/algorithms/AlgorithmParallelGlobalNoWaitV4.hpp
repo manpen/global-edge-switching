@@ -12,9 +12,10 @@
 
 namespace es {
 
+template <bool UsePrefetching = true>
 struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
     using EdgeDependenciesStore = EdgeDependenciesNoWaitV4<edge_hash_crc32>;
-    static constexpr size_t kPrefetch = 1;
+    static constexpr size_t kPrefetch = UsePrefetching ? 1 : 0;
 
     AlgorithmParallelGlobalNoWaitV4(const NetworKit::Graph &graph, double lazyness = 0.01, double load_factor = 2.0) //
         : AlgorithmBase(graph), edge_dependencies(graph.numberOfEdges(), load_factor), lazyness_(lazyness) {

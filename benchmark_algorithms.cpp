@@ -133,6 +133,10 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmVectorRobin<false>>(graph);
         } else if (algo == "global-robin") {
             es = std::make_unique<AlgorithmVectorRobin<true>>(graph);
+        } else if (algo == "robin-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmVectorRobin<false, false>>(graph);
+        } else if (algo == "global-robin-no-prefetch") {
+            es = std::make_unique<AlgorithmVectorRobin<true, false>>(graph);
         } else if (algo == "naive") {
             es = std::make_unique<AlgorithmParallelNaive>(graph);
         } else if (algo == "global-naive") {
@@ -140,20 +144,24 @@ void benchmark_on_file(int argc, const char** argv) {
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {
-            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4>(graph);
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<true>>(graph);
+        } else if (algo == "global-no-wait-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<false>>(graph);
         } else if (algo == "networkit") {
             es = std::make_unique<AlgorithmNetworKit>(graph);
         } else if (algo == "gengraph") {
             es = std::make_unique<AlgorithmGenGraph>(graph);
         } else if (algo == "seq-global") {
             es = std::make_unique<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
+        } else {
+            throw std::runtime_error("Unknown algorithm");
         }
         init_time = timer.elapsedSeconds();
     }
 
     std::mt19937_64 gen{0};
     while (repeats--) {
-        std::mutex m;
+        std::mutex mutex;
         std::condition_variable cv;
         int retValue;
 
@@ -176,6 +184,8 @@ void benchmark_on_file(int argc, const char** argv) {
             std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
             std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
             std::cout << std::endl;
+
+            std::unique_lock<std::mutex> lock(mutex);
             cv.notify_one();
         });
 
@@ -183,8 +193,8 @@ void benchmark_on_file(int argc, const char** argv) {
         // implement timeout
         if (timeout) {
             benchmarking_thread.detach();
-            std::unique_lock<std::mutex> l(m);
-            if(cv.wait_for(l, std::chrono::seconds(timeout)) == std::cv_status::timeout) {
+            std::unique_lock<std::mutex> lock(mutex);
+            if(cv.wait_for(lock, std::chrono::seconds(timeout)) == std::cv_status::timeout) {
                 std::cout << "Timeout after " << timeout << "s" << std::endl;
                 abort();
             }

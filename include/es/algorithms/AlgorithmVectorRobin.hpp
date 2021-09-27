@@ -12,7 +12,7 @@
 
 namespace es {
 
-template<bool Global>
+template<bool Global, bool UsePrefetching = true>
 struct AlgorithmVectorRobin : public AlgorithmBase {
 public:
     AlgorithmVectorRobin(const NetworKit::Graph &graph, double load_factor = 0.25) : AlgorithmBase(graph) {
@@ -37,7 +37,7 @@ public:
             shuffle::RandomBits fair_coin;
 
             while (true) {
-                constexpr size_t kPrefetchSwitches = 8;
+                constexpr size_t kPrefetchSwitches = UsePrefetching ? 8 : 0;
                 shuffle::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen);
                 size_t num_switch_in_global_step = std::min(edge_list_.size() / 2, num_switches);
                 auto num_lazy = std::binomial_distribution<size_t>{num_switch_in_global_step, lazyness_}(gen);
@@ -54,7 +54,7 @@ public:
             }
 
         } else {
-            constexpr size_t kPrefetchSwitches = 4;
+            constexpr size_t kPrefetchSwitches = UsePrefetching ? 4 : 0;
             constexpr size_t kPrefetchIndices = 2 * kPrefetchSwitches;
             std::array<size_t, kPrefetchIndices> prefetch_cache;
             size_t prefetch_i = 0;
