@@ -47,6 +47,7 @@ NetworKit::Graph read_graph(std::string filename) {
     NetworKit::Graph graph;
     std::ifstream ifile{filename};
     std::string line;
+    size_t mutli_edges = 0;
     while (getline(ifile, line)) {
         size_t sep = line.find(',');
         if (line.starts_with('%')) {
@@ -55,9 +56,17 @@ NetworKit::Graph read_graph(std::string filename) {
         } else {
             node_t u = std::stoll(line.substr(0, sep));
             node_t v = std::stoll(line.substr(sep + 1));
+
+            if (graph.hasEdge(u, v)) {
+                ++mutli_edges;
+                continue;
+            }
+
             graph.addEdge(u, v);
         }
     }
+    if (mutli_edges)
+        std::cout << "Removed " << mutli_edges << " multi-edges\n";
     return graph;
 }
 
