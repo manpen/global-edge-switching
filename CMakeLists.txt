@@ -55,8 +55,8 @@ target_link_libraries(parallel_naive PRIVATE libedgeswitch)
 add_executable(benchmark_parallel_naive benchmark_parallel_naive.cpp)
 target_link_libraries(benchmark_parallel_naive PRIVATE libedgeswitch)
 
-add_executable(benchmark_shuffle benchmark_shuffle.cpp)
-target_link_libraries(benchmark_shuffle PRIVATE libedgeswitch)
+#add_executable(benchmark_shuffle benchmark_shuffle.cpp)
+#target_link_libraries(benchmark_shuffle PRIVATE libedgeswitch)
 
 add_executable(benchmark_algorithms benchmark_algorithms.cpp)
 target_link_libraries(benchmark_algorithms PRIVATE libedgeswitch libgengraph)
