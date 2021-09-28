@@ -9,7 +9,6 @@
 #include <es/RandomBits.hpp>
 
 #include <shuffle/random/UniformRange.hpp>
-#include <time.h>
 
 namespace es {
 
@@ -52,14 +51,14 @@ public:
         }
 
         size_t successful_switches = 0;
-        size_t sync_rejects = 0;
-        size_t conflicting_swichtes = 0;
+        size_t sync_retries = 0;
+        size_t sync_collisions = 0;
 
         while (true) {
             incpwl::ScopedTimer timer;
             auto chunk_size = std::min<size_t>(num_switches, num_edges_ * chunk_factor_);
 
-            #pragma omp parallel reduction(+:successful_switches, sync_rejects, conflicting_swichtes)
+            #pragma omp parallel reduction(+:successful_switches, sync_retries, sync_collisions)
             {
                 auto tid = static_cast<unsigned>(omp_get_thread_num());
                 auto num_threads = static_cast<unsigned>(omp_get_num_threads());
@@ -96,8 +95,8 @@ public:
                     size_t pipeline_i = 0;
                     for (size_t i = 0; i < local_switches; ++i) {
                         successful_switches += pipeline[pipeline_i].stage2();
-                        sync_rejects += pipeline[pipeline_i].retries;
-                        conflicting_swichtes += !!pipeline[pipeline_i].retries;
+                        sync_retries += pipeline[pipeline_i].retries;
+                        sync_collisions += !!pipeline[pipeline_i].retries;
 
                         pipeline[pipeline_i] = new_random_switch();
                         pipeline[(pipeline_i + kPrefetch / 2) % kPrefetch].stage1();
@@ -121,7 +120,7 @@ public:
 
         if (logging_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
-                      << ",num_sync_rejects=" << sync_rejects << ",conflicting_switches=" << conflicting_swichtes << "\n";
+                      << ",num_sync_retries=" << sync_retries << ",num_sync_collisions=" << sync_collisions << std::endl;
         }
 
         return successful_switches;
@@ -212,11 +211,8 @@ private:
             retries = -1;
             while (true) {
                 if (++retries) {
-                    // yield for a moment (it works better than std::this_thread::yield())
-                    timespec ts;
-                    ts.tv_nsec = 128 + (index1 % 1024); // wait a random moment
-                    ts.tv_sec = 0;
-                    nanosleep(&ts, nullptr);
+                    // make spin-lock a little bit less spinny
+                    std::this_thread::yield();
                 }
 
                 if (e1 != edge_list[index1].load(std::memory_order_consume) || e2 != edge_list[index2].load(std::memory_order_consume)) {

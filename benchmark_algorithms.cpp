@@ -147,6 +147,7 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
         } else if (algo == "global-naive-v2") {
             es = std::make_unique<AlgorithmParallelNaiveGlobalV2>(graph);
+            static_cast<AlgorithmParallelNaiveGlobalV2*>(es.get())->enable_logging();
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {

@@ -43,7 +43,8 @@ public:
         size_t num_rounds = 2 * (num_switches / num_edges_);
 
         size_t successful_switches = 0;
-        size_t sync_rejects = 0;
+        size_t sync_retries = 0;
+        size_t sync_collisions = 0;
 
         shuffle::GeneratorProvider gen_prov(gen);
 
@@ -65,7 +66,7 @@ public:
                     successful_switches += sw.commit();
                 }
             } else {
-                #pragma omp parallel reduction(+:successful_switches, sync_rejects)
+                #pragma omp parallel reduction(+:successful_switches, sync_retries, sync_collisions)
                 {
                     auto tid = static_cast<unsigned>(omp_get_thread_num());
 
@@ -79,19 +80,25 @@ public:
                         std::array<Switch<>, kPrefetch> pipeline;
                         size_t p_idx = 0;
 
+                        auto commit_switch = [&] (auto &sw) {
+                            successful_switches += sw.commit();
+                            sync_retries += sw.retries;
+                            sync_collisions += (sw.retries > 0);
+                        };
+
                         #pragma omp for schedule(dynamic, 1024)
                         for (size_t i = 0; i < index_end; i += 2) {
                             auto &cur = pipeline[p_idx % kPrefetch];
 
                             if (TLX_LIKELY(p_idx >= kPrefetch))
-                                successful_switches += cur.commit();
+                                commit_switch(cur);
 
                             cur = Switch<>(edge_list_.data(), &edge_set_, tid, i);
                             ++p_idx;
                         }
 
                         for (size_t i = 0; i < kPrefetch; ++i, ++p_idx) {
-                            successful_switches += pipeline[p_idx % kPrefetch].commit();
+                            commit_switch(pipeline[p_idx % kPrefetch]);
                         }
                     }
                 }
@@ -103,7 +110,7 @@ public:
 
         if (logging_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
-                      << ",num_sync_rejects=" << sync_rejects << "\n";
+                      << ",num_sync_retries=" << sync_retries << ",num_sync_collisions=" << sync_collisions << std::endl;
         }
 
         return successful_switches;
@@ -141,6 +148,7 @@ private:
         edge_t e1, e2, e3, e4;
         edge_set_type::hint_t e1_hint, e2_hint, e3_hint, e4_hint;
         bool failed;
+        long retries;
 
         void prefetch(void *ptr) {
             __builtin_prefetch(ptr, 1, 1);
@@ -188,37 +196,53 @@ private:
             auto[U, V] = to_nodes(e3);
             auto[X, Y] = to_nodes(e4);
 
-            auto ticket1 = edge_set->acquire(e1_hint, u, v, tid).second;
-            auto ticket2 = edge_set->acquire(e2_hint, x, y, tid).second;
-            assert(ticket1 && ticket2); // only source are locked without inserting them first ---
-            // e3 and e4 wont lock an item already present; since we know that e1 and e2 are present
-            // we have to get the ticket!
-
-            auto ticket3 = edge_set->insert(e3_hint, U, V, tid);
-            if (!ticket3) {
-                // edge e3 exists: reject
-                edge_set->release(ticket1);
-                edge_set->release(ticket2);
+            if (failed) {
+                retries = 0;
                 return false;
             }
 
-            auto ticket4 = edge_set->insert(e4_hint, X, Y, tid);
-            if (!ticket4) {
-                // edge e4 exists: reject
-                edge_set->erase_and_release(ticket3);
-                edge_set->release(ticket1);
-                edge_set->release(ticket2);
-                return false;
-            }
+            retries = -1;
+            while (true) {
+                if (++retries) {
+                    // make spin-lock a little bit less spinny
+                    std::this_thread::yield();
+                }
 
-            // successful
-            edge_list[index] = e3;
-            edge_list[index + 1] = e4;
-            edge_set->erase_and_release(ticket1);
-            edge_set->erase_and_release(ticket2);
-            edge_set->release(ticket3);
-            edge_set->release(ticket4);
-            return true;
+                auto ticket1 = edge_set->acquire(e1_hint, u, v, tid).second;
+                if (!ticket1) continue;
+
+                auto ticket2 = edge_set->acquire(e2_hint, x, y, tid).second;
+                if (!ticket2) {
+                    edge_set->release(ticket1);
+                    continue;
+                }
+
+                auto ticket3 = edge_set->insert(e3_hint, U, V, tid);
+                if (!ticket3) {
+                    // edge e3 exists: reject
+                    edge_set->release(ticket1);
+                    edge_set->release(ticket2);
+                    return false;
+                }
+
+                auto ticket4 = edge_set->insert(e4_hint, X, Y, tid);
+                if (!ticket4) {
+                    // edge e4 exists: reject
+                    edge_set->erase_and_release(ticket3);
+                    edge_set->release(ticket1);
+                    edge_set->release(ticket2);
+                    return false;
+                }
+
+                // successful
+                edge_list[index] = e3;
+                edge_list[index + 1] = e4;
+                edge_set->erase_and_release(ticket1);
+                edge_set->erase_and_release(ticket2);
+                edge_set->release(ticket3);
+                edge_set->release(ticket4);
+                return true;
+            }
         }
     };
 
