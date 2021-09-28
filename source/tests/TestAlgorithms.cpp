@@ -14,7 +14,6 @@
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveV2.hpp>
-#include <es/algorithms/AlgorithmParallelNaiveV3.hpp>
 #include <es/algorithms/AlgorithmGlobal.hpp>
 #include <es/algorithms/AlgorithmVectorRobin.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
