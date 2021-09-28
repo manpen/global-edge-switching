@@ -70,22 +70,33 @@ int main() {
 
             edge_t target_m = n * d;
 
+            std::cout << "n=" << std::setw(4) << n << ",d=" << std::setw(4) << d << "  | ";
             for (int repeat = 0; repeat < 100; ++repeat) {
-                run_test<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-nowait-v4", n, target_m, gen);
-                run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
-                run_test<AlgorithmVectorRobin<true>>("global-robin", n, target_m, gen);
-                run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
-                run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
-                run_test<AlgorithmParallelNaiveV2>("par-v2", n, target_m, gen);
-                //run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
-                run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-                run_test<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
-                run_test<AlgorithmParallelNaive>("parallel-naive", n, target_m, gen);
-                run_test<AlgorithmParallelNaiveGlobal>("parallel-naive-global", n, target_m, gen);
-                run_test<AlgorithmParallelNaiveGlobalV2>("parallel-naive-global-v2", n, target_m, gen);
+                // production algorithms
+                {
+                    run_test<AlgorithmVectorRobin<false>>("robin-v2", n, target_m, gen);
+                    run_test<AlgorithmVectorRobin<true>>("global-robin", n, target_m, gen);
+                    run_test<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-nowait-v4", n, target_m, gen);
+                    run_test<AlgorithmParallelNaiveV2>("par-v2", n, target_m, gen);
+                    run_test<AlgorithmParallelNaiveGlobalV2>("parallel-naive-global-v2", n, target_m, gen);
+                }
 
-                std::cout << "\n";
+                // discontinued algorithms
+                if (false) {
+                    run_test<AlgorithmAdjacencyVector>("aj", n, target_m, gen);
+                    run_test<AlgorithmParallelNaive>("par", n, target_m, gen);
+                    //run_test<AlgorithmVectorSet<google::dense_hash_set<edge_t, edge_hash_crc32>>>("dense", n, target_m, gen);
+                    run_test<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
+                    run_test<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", n, target_m, gen);
+                    run_test<AlgorithmParallelNaive>("parallel-naive", n, target_m, gen);
+                    run_test<AlgorithmParallelNaiveGlobal>("parallel-naive-global", n, target_m, gen);
+                }
+
+                if (repeat % 10 == 0)
+                    std::cout << ' ';
+                std::cout << '.' << std::flush;
             }
+            std::cout << std::endl;
         }
     }
 
