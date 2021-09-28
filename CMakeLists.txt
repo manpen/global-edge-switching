@@ -61,5 +61,8 @@ target_link_libraries(benchmark_parallel_naive PRIVATE libedgeswitch)
 add_executable(benchmark_algorithms benchmark_algorithms.cpp)
 target_link_libraries(benchmark_algorithms PRIVATE libedgeswitch libgengraph)
 
+add_executable(count_duplicates count_duplicates.cpp)
+target_link_libraries(count_duplicates libedgeswitch)
+
 enable_testing()
 add_subdirectory(source/tests)
