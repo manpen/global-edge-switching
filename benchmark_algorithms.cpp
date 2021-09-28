@@ -26,6 +26,7 @@
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveV2.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobalV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
@@ -144,6 +145,8 @@ void benchmark_on_file(int argc, const char** argv) {
             static_cast<AlgorithmParallelNaiveV2*>(es.get())->enable_logging();
         } else if (algo == "global-naive") {
             es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
+        } else if (algo == "global-naive-v2") {
+            es = std::make_unique<AlgorithmParallelNaiveGlobalV2>(graph);
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {

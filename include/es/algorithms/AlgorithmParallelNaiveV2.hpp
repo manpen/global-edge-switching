@@ -17,13 +17,10 @@ struct AlgorithmParallelNaiveV2 : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaiveV2(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0) : AlgorithmBase(graph),
-                                                                                                                   edge_set_(
-                                                                                                                       graph.numberOfEdges(),
-                                                                                                                       load_factor),
-                                                                                                                   chunk_factor_(
-                                                                                                                       chunk_factor),
-                                                                                                                       num_edges_(graph.numberOfEdges()){
+    AlgorithmParallelNaiveV2(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0) //
+        : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), chunk_factor_(chunk_factor),
+          num_edges_(graph.numberOfEdges()) //
+          {
         edge_list_ = std::make_unique<std::atomic<edge_t>[]>(num_edges_);
         auto it = edge_list_.get();
 
@@ -74,7 +71,7 @@ public:
 
                 auto new_random_switch = [&] {
                     return Switch(edge_list_.get(), &edge_set_, tid, shuffle::nearlydivisionless(num_edges_, gen),
-                                    shuffle::nearlydivisionless(num_edges_, gen));
+                                  shuffle::nearlydivisionless(num_edges_, gen));
                 };
 
                 if (!kPrefetch || local_switches < kPrefetch) {
@@ -90,14 +87,14 @@ public:
                     // a switches constructor and phase1 do not affect our data structures.
                     // so it's safe to create a few more switches and call stage1 too often
                     // to reduce the complexity of the boundary cases.
-                    for(size_t i = 0; i < kPrefetch; ++i) {
+                    for (size_t i = 0; i < kPrefetch; ++i) {
                         pipeline[i] = new_random_switch();
                         if (i < kPrefetch / 2)
                             pipeline[i].stage1();
                     }
 
                     size_t pipeline_i = 0;
-                    for(size_t i = 0; i < local_switches; ++i) {
+                    for (size_t i = 0; i < local_switches; ++i) {
                         successful_switches += pipeline[pipeline_i].stage2();
                         sync_rejects += pipeline[pipeline_i].retries;
                         conflicting_swichtes += !!pipeline[pipeline_i].retries;
@@ -163,15 +160,14 @@ private:
         bool failed;
         long retries;
 
-        void prefetch(void* ptr) {
+        void prefetch(void *ptr) {
             __builtin_prefetch(ptr, 1, 1);
         }
 
         Switch() : failed(true) {}
 
-        Switch(std::atomic<edge_t> *edge_list, edge_set_type *edge_set, unsigned tid,
-               size_t index1, size_t index2) :
-            edge_list(edge_list), edge_set(edge_set), tid(tid), index1(index1), index2(index2) {
+        Switch(std::atomic<edge_t> *edge_list, edge_set_type *edge_set, unsigned tid, size_t index1, size_t index2) : edge_list(
+            edge_list), edge_set(edge_set), tid(tid), index1(index1), index2(index2) {
 
             prefetch(edge_list + index1);
             prefetch(edge_list + index2);
@@ -194,8 +190,8 @@ private:
 
             e1_hint = edge_set->prefetch(u, v);
             {
-                auto [x1,y1] = to_nodes(e2);
-                e2_hint = edge_set->prefetch(x1,y1);
+                auto[x1, y1] = to_nodes(e2);
+                e2_hint = edge_set->prefetch(x1, y1);
             }
 
             e3 = to_edge(u, x);
@@ -208,10 +204,13 @@ private:
         }
 
         bool stage2() {
-            if (failed) return false;
+            if (failed) {
+                retries = 0;
+                return false;
+            }
 
             retries = -1;
-            while(true) {
+            while (true) {
                 if (++retries) {
                     // yield for a moment (it works better than std::this_thread::yield())
                     timespec ts;
@@ -220,8 +219,7 @@ private:
                     nanosleep(&ts, nullptr);
                 }
 
-                if (e1 != edge_list[index1].load(std::memory_order_consume) ||
-                    e2 != edge_list[index2].load(std::memory_order_consume)) {
+                if (e1 != edge_list[index1].load(std::memory_order_consume) || e2 != edge_list[index2].load(std::memory_order_consume)) {
                     if (!stage1()) // race condition on the sample data structure
                         return false;
                 }
@@ -238,7 +236,7 @@ private:
                     continue;
                 }
 
-                auto [U, V] = to_nodes(e3);
+                auto[U, V] = to_nodes(e3);
 
                 auto ticket3 = edge_set->insert(e3_hint, U, V, tid);
                 if (!ticket3) {
@@ -248,7 +246,7 @@ private:
                     return false;
                 }
 
-                auto [X, Y] = to_nodes(e4);
+                auto[X, Y] = to_nodes(e4);
                 auto ticket4 = edge_set->insert(e4_hint, X, Y, tid);
                 if (!ticket4) {
                     edge_set->erase_and_release(ticket3);

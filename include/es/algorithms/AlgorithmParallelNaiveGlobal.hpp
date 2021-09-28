@@ -40,15 +40,6 @@ public:
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
-        std::vector<std::mt19937_64> gens;
-        {
-            auto n = omp_get_max_threads();
-            gens.reserve(n);
-            while(n--) {
-                gens.emplace_back(gen());
-            }
-        }
-
         size_t num_rounds = 2 * (num_switches / edge_list_.size());
 
         size_t successful_switches = 0;

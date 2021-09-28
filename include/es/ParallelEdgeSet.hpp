@@ -2,8 +2,12 @@
 
 #include <cassert>
 #include <atomic>
+#include <numeric>
+#include <algorithm>
 #include <vector>
 #include <memory>
+
+#include <omp.h>
 
 #include <nmmintrin.h>
 
@@ -12,6 +16,7 @@
 
 #include <tsl/robin_growth_policy.h>
 
+#include <es/Graph.hpp>
 #include <es/ScopedTimer.hpp>
 
 template<typename Growth = tsl::rh::power_of_two_growth_policy<2>>
@@ -32,6 +37,7 @@ public:
     using hint_t = iterator_type;
 
     static constexpr size_t kBitsPerPayload = 2 * kBitsPerNode;
+    static constexpr node_type kNodeMask = (node_type(1) << kBitsPerNode) - 1;
 
     static constexpr value_type kEmpty = -1;
     static constexpr value_type kDeleted = kEmpty - 1;
@@ -51,15 +57,42 @@ public:
 
     ParallelEdgeSet &operator=(ParallelEdgeSet &&) = default;
 
+    template <bool DoPrefetch = true>
     hint_t prefetch(node_type a, node_type b) const noexcept {
         auto reference_payload = build_bucket(a, b, 0);
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
 
-        __builtin_prefetch(it, 1, 1);
-        //__builtin_prefetch(it + 2, 1, 1);
+        if (DoPrefetch)
+            __builtin_prefetch(it, 1, 1);
 
         return it;
+    }
+
+    [[nodiscard]] size_t bucket_of(iterator_type it) const noexcept {
+        assert(data_begin_ <= it);
+        assert(it <= data_end_);
+        return static_cast<size_t>(std::distance(data_begin_, it));
+    }
+
+    void prefetch_bucket(size_t bucket) const noexcept {
+        auto it = data_begin_ + bucket;
+        __builtin_prefetch(it, 1, 1);
+    }
+
+    [[nodiscard]] iterator_type lock_bucket(size_t bucket, unsigned tid) noexcept {
+        assert(bucket < std::distance(data_begin_, data_end_));
+        auto it = data_begin_ + bucket;
+        while(true) {
+            auto value = __atomic_load_n(it, __ATOMIC_CONSUME);
+            if (value == kEmpty || value == kDeleted || is_locked(value)) return nullptr;
+
+            auto locked = build_bucket(value, tid);
+            auto did_acquire = __atomic_compare_exchange_n(it, &value, locked, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME);
+
+            if (did_acquire)
+                return it;
+        }
     }
 
     [[nodiscard]] std::pair<bool, iterator_type> acquire(node_type a, node_type b, unsigned tid) noexcept {
@@ -69,7 +102,7 @@ public:
         return acquire(it, a, b, tid);
     }
 
-        // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
+    // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
     // the second entry returns a pointer if the bucket could be locked
     [[nodiscard]] std::pair<bool, iterator_type> acquire(hint_t it, node_type a, node_type b, unsigned tid) noexcept {
         auto reference_unlocked = build_bucket(a, b);
@@ -152,6 +185,7 @@ public:
         }
     }
 
+
     // rebuilding
     void rebuild() {
         auto size = storage_.size() - 1;
@@ -212,8 +246,104 @@ public:
         rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
     }
 
+    // rebuilding
+    void rebuild(std::atomic<size_t>* non_empty) {
+        auto size = storage_.size() - 1;
+        bool fresh_rebuild_instance = !rebuild_instance_;
+        if (fresh_rebuild_instance) {
+            rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_);
+        }
+
+        size_t empty_slots = 0;
+        size_t num_items = 0;
+
+        std::vector<size_t> local_counts(omp_get_max_threads());
+        std::vector<size_t> partial_sums(omp_get_max_threads());
+
+        constexpr size_t kChuckSize = 1 << 14;
+
+        #pragma omp parallel reduction(+:empty_slots, num_items)
+        {
+            const auto tid = static_cast<unsigned>(omp_get_thread_num());
+
+            if (!fresh_rebuild_instance) {
+                // parallel fill(rebuild_instance->data_begin, end, kEmpty);
+                auto data = rebuild_instance_->data_begin_;
+                #pragma omp for schedule(dynamic,kChuckSize)
+                for (size_t i = 0; i != size; ++i) {
+                    data[i] = kEmpty;
+                }
+            }
+
+            size_t local_count = 0;
+            #pragma omp for schedule(static, kChuckSize)
+            for (size_t i = 0; i != size; ++i) {
+                auto value = data_begin_[i];
+                empty_slots += (value == kEmpty);
+                local_count += !(value == kEmpty || value == kDeleted);
+            }
+
+            #pragma omp critical
+            local_counts[tid] = local_count;
+
+            #pragma omp barrier
+
+            #pragma omp single // implies barrier at end
+            std::partial_sum(begin(local_counts), end(local_counts), begin(partial_sums));
+
+            auto my_writer = non_empty + (partial_sums[tid] - local_count);
+
+            #pragma omp for schedule(static, kChuckSize)
+            for (size_t i = 0; i != size; ++i) {
+                auto value = data_begin_[i];
+                if (value == kEmpty || value == kDeleted)
+                    continue;
+
+                assert(!is_locked(value));
+
+                auto fast_insert = [] (auto& inst, auto value)
+                {
+                    auto bucket = inst.growth_.bucket_for_hash(inst.hash(inst.get_payload(value)));
+                    auto it = inst.data_begin_ + bucket;
+
+                    while (true) {
+                        auto empty = kEmpty;
+                        if (__atomic_compare_exchange_n(it, &empty, value, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME)) {
+                            return it;
+                        }
+
+                        ++it;
+                        if (TLX_UNLIKELY(it == inst.data_end_))
+                            it = inst.data_begin_;
+                    }
+                };
+                *(my_writer++) = rebuild_instance_->bucket_of(fast_insert(*rebuild_instance_, value));
+
+                ++num_items;
+            }
+        }
+
+        // we will now switch the rebuild instance with us; only one thing we have to make sure:
+        // we do not want to switch the pointer to the rebuild instance (next time, we will rebuild
+        // it will start again from *this and not from *rebuild_instance).
+        auto ptr_to_org_rebuild_instance = rebuild_instance_.get();
+        std::swap(*this, *rebuild_instance_);
+        rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
+    }
+
+
     [[nodiscard]] size_t capacity() const noexcept {
         return max_size_;
+    }
+
+    [[nodiscard]] std::tuple<node_type, node_type, value_type, bool> fetch(size_t bucket) const noexcept {
+        return fetch(data_begin_ + bucket);
+    }
+
+    [[nodiscard]] std::tuple<node_type, node_type, value_type, bool> fetch(iterator_type it) const noexcept {
+        auto edge = __atomic_load_n(it, __ATOMIC_CONSUME);
+        auto payload = get_payload(edge);
+        return {payload & kNodeMask, (payload >> kBitsPerNode), payload, payload == kEmpty || payload == kDeleted};
     }
 
 private:
@@ -294,15 +424,16 @@ private:
     }
 
     [[nodiscard]] constexpr value_type build_bucket(node_type a, node_type b, unsigned tid = -1) const {
-        auto tmp = (a ^ b) * (a > b);
-        a ^= tmp;
-        b ^= tmp;
+        es::swap_if(a > b, a, b);
 
         assert(a < (node_type(1) << kBitsPerNode));
         assert(b < (node_type(1) << kBitsPerNode));
 
-        return static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode) |
-               (static_cast<value_type>(tid) << kBitsPerPayload);
+        return build_bucket(static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode), tid);
+    }
+
+    [[nodiscard]] constexpr value_type build_bucket(value_type unlocked, unsigned tid = -1) const {
+        return get_payload(unlocked) | (static_cast<value_type>(tid) << kBitsPerPayload);
     }
 
     [[nodiscard]] constexpr value_type get_payload(value_type tmp) const {
@@ -330,4 +461,6 @@ private:
             return value ^ (0x1234567 * l + 0x87654321 * h);
         }
     }
+
+
 };
