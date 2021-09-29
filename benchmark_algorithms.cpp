@@ -152,11 +152,17 @@ void benchmark_on_file(int argc, const char** argv) {
         } else if (algo == "naive-v2") {
             es = std::make_unique<AlgorithmParallelNaiveV2>(graph);
             static_cast<AlgorithmParallelNaiveV2*>(es.get())->enable_logging();
+        } else if (algo == "naive-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelNaiveV2NoPrefetch>(graph);
+            static_cast<AlgorithmParallelNaiveV2NoPrefetch*>(es.get())->enable_logging();
         } else if (algo == "global-naive") {
             es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
         } else if (algo == "global-naive-v2") {
             es = std::make_unique<AlgorithmParallelNaiveGlobalV2>(graph);
             static_cast<AlgorithmParallelNaiveGlobalV2*>(es.get())->enable_logging();
+        } else if (algo == "global-naive-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelNaiveGlobalV2NoPrefetch>(graph);
+            static_cast<AlgorithmParallelNaiveGlobalV2NoPrefetch*>(es.get())->enable_logging();
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {

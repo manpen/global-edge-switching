@@ -78,7 +78,9 @@ int main() {
                     run_test<AlgorithmVectorRobin<true>>("global-robin", n, target_m, gen);
                     run_test<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-nowait-v4", n, target_m, gen);
                     run_test<AlgorithmParallelNaiveV2>("par-v2", n, target_m, gen);
+                    run_test<AlgorithmParallelNaiveV2NoPrefetch>("par-v2-np", n, target_m, gen);
                     run_test<AlgorithmParallelNaiveGlobalV2>("parallel-naive-global-v2", n, target_m, gen);
+                    run_test<AlgorithmParallelNaiveGlobalV2NoPrefetch>("parallel-naive-global-v2", n, target_m, gen);
                 }
 
                 // discontinued algorithms

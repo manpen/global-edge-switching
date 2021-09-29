@@ -13,11 +13,12 @@
 
 namespace es {
 
-struct AlgorithmParallelNaiveGlobalV2 : public AlgorithmBase {
+template<unsigned PrefetchDepth = 4>
+struct AlgorithmParallelNaiveGlobalV2Impl : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaiveGlobalV2(const NetworKit::Graph &graph, double lazyness = 0.01,  double load_factor = 2.0) //
+    AlgorithmParallelNaiveGlobalV2Impl(const NetworKit::Graph &graph, double lazyness = 0.01, double load_factor = 2.0) //
         : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), num_edges_(graph.numberOfEdges()), laziness_(lazyness) //
     {
         edge_list_.reserve(num_edges_);
@@ -48,7 +49,7 @@ public:
 
         shuffle::GeneratorProvider gen_prov(gen);
 
-        constexpr size_t kPrefetch = 4;
+        constexpr size_t kPrefetch = PrefetchDepth;
 
         for (size_t round = 0; round < num_rounds; ++round) {
             if (round)
@@ -58,11 +59,11 @@ public:
 
             shuffle::parallel::iss_shuffle(edge_list_.begin(), edge_list_.end(), gen_prov);
 
-            auto index_end = 2*std::binomial_distribution<size_t>{num_edges_/2, 1-laziness_}(gen);
+            auto index_end = 2 * std::binomial_distribution<size_t>{num_edges_ / 2, 1 - laziness_}(gen);
 
             if (index_end < kPrefetch + 128) {
                 for (size_t i = 0; i < index_end; i += 2) {
-                    Switch sw(edge_list_.data(), &edge_set_, 0, i);
+                    Switch<false> sw(edge_list_.data(), &edge_set_, 0, i);
                     successful_switches += sw.commit();
                 }
             } else {
@@ -80,7 +81,7 @@ public:
                         std::array<Switch<>, kPrefetch> pipeline;
                         size_t p_idx = 0;
 
-                        auto commit_switch = [&] (auto &sw) {
+                        auto commit_switch = [&](auto &sw) {
                             successful_switches += sw.commit();
                             sync_retries += sw.retries;
                             sync_collisions += (sw.retries > 0);
@@ -136,7 +137,7 @@ private:
     unsigned logging_{0};
     double laziness_;
 
-    template <bool DoPrefetch = true>
+    template<bool DoPrefetch = true>
     struct Switch {
         // provided
         edge_t *edge_list;
@@ -245,7 +246,10 @@ private:
             }
         }
     };
-
 };
+
+
+using AlgorithmParallelNaiveGlobalV2 = AlgorithmParallelNaiveGlobalV2Impl<>;
+using AlgorithmParallelNaiveGlobalV2NoPrefetch = AlgorithmParallelNaiveGlobalV2Impl<0>;
 
 }

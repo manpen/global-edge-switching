@@ -12,14 +12,15 @@
 
 namespace es {
 
-struct AlgorithmParallelNaiveV2 : public AlgorithmBase {
+template<unsigned PrefetchDepth = 4>
+struct AlgorithmParallelNaiveV2Impl : public AlgorithmBase {
     using edge_set_type = ParallelEdgeSet<>;
 
 public:
-    AlgorithmParallelNaiveV2(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0) //
+    AlgorithmParallelNaiveV2Impl(const NetworKit::Graph &graph, double load_factor = 2.0, double chunk_factor = 1.0) //
         : AlgorithmBase(graph), edge_set_(graph.numberOfEdges(), load_factor), chunk_factor_(chunk_factor),
           num_edges_(graph.numberOfEdges()) //
-          {
+    {
         edge_list_ = std::make_unique<std::atomic<edge_t>[]>(num_edges_);
         auto it = edge_list_.get();
 
@@ -62,25 +63,40 @@ public:
             {
                 auto tid = static_cast<unsigned>(omp_get_thread_num());
                 auto num_threads = static_cast<unsigned>(omp_get_num_threads());
-                auto gen = gens[tid];
+                auto gen = gens[tid]; // copy by choice to avoid cache conflicts
 
                 auto local_switches = ((tid + 1) * chunk_size / num_threads) - (tid * chunk_size / num_threads);
 
-                constexpr size_t kPrefetch = 4;
+                constexpr size_t kPrefetch = PrefetchDepth;
 
-                auto new_random_switch = [&] {
-                    return Switch(edge_list_.get(), &edge_set_, tid, shuffle::nearlydivisionless(num_edges_, gen),
-                                  shuffle::nearlydivisionless(num_edges_, gen));
+                auto commit_switch = [&](auto &sw) {
+                    successful_switches += sw.stage2();
+                    sync_retries += sw.retries;
+                    sync_collisions += sw.retries > 0;
                 };
 
-                if (!kPrefetch || local_switches < kPrefetch) {
+                auto run_sequential = [&] {
                     for (size_t i = 0; i < local_switches; ++i) {
-                        auto s = new_random_switch();
+                        Switch<false> s(edge_list_.get(), &edge_set_, tid, shuffle::nearlydivisionless(num_edges_, gen),
+                                        shuffle::nearlydivisionless(num_edges_, gen));
                         s.stage1();
-                        successful_switches += s.stage2();
+                        commit_switch(s);
                     }
+                };
+
+                if (local_switches < kPrefetch) {
+                    run_sequential();
+
+                } else if constexpr(!kPrefetch) {
+                    run_sequential();
+
                 } else {
-                    std::array<Switch, kPrefetch> pipeline;
+                    auto new_random_switch = [&] {
+                        return Switch<true>(edge_list_.get(), &edge_set_, tid, shuffle::nearlydivisionless(num_edges_, gen),
+                                            shuffle::nearlydivisionless(num_edges_, gen));
+                    };
+
+                    std::array<Switch < true>, kPrefetch > pipeline;
 
                     // we do a constant amount of addition work and exploit that
                     // a switches constructor and phase1 do not affect our data structures.
@@ -94,12 +110,16 @@ public:
 
                     size_t pipeline_i = 0;
                     for (size_t i = 0; i < local_switches; ++i) {
-                        successful_switches += pipeline[pipeline_i].stage2();
-                        sync_retries += pipeline[pipeline_i].retries;
-                        sync_collisions += !!pipeline[pipeline_i].retries;
+                        auto &cur = pipeline[pipeline_i];
+                        commit_switch(cur);
+                        cur = new_random_switch();
 
-                        pipeline[pipeline_i] = new_random_switch();
                         pipeline[(pipeline_i + kPrefetch / 2) % kPrefetch].stage1();
+                        pipeline_i = (pipeline_i + 1) % kPrefetch;
+                    }
+
+                    for (size_t i = 0; i < kPrefetch; ++i) {
+                        commit_switch(pipeline[pipeline_i]);
                         pipeline_i = (pipeline_i + 1) % kPrefetch;
                     }
                 }
@@ -146,6 +166,7 @@ private:
     double chunk_factor_;
     unsigned logging_{0};
 
+    template<bool DoPrefetch = true>
     struct Switch {
         // provided
         std::atomic<edge_t> *edge_list;
@@ -160,6 +181,7 @@ private:
         long retries;
 
         void prefetch(void *ptr) {
+            if (!DoPrefetch) return;
             __builtin_prefetch(ptr, 1, 1);
         }
 
@@ -187,17 +209,17 @@ private:
                 return false;
             }
 
-            e1_hint = edge_set->prefetch(u, v);
+            e1_hint = edge_set->prefetch<DoPrefetch>(u, v);
             {
                 auto[x1, y1] = to_nodes(e2);
-                e2_hint = edge_set->prefetch(x1, y1);
+                e2_hint = edge_set->prefetch<DoPrefetch>(x1, y1);
             }
 
             e3 = to_edge(u, x);
             e4 = to_edge(v, y);
 
-            e3_hint = edge_set->prefetch(u, x);
-            e4_hint = edge_set->prefetch(v, y);
+            e3_hint = edge_set->prefetch<DoPrefetch>(u, x);
+            e4_hint = edge_set->prefetch<DoPrefetch>(v, y);
 
             return true;
         }
@@ -264,5 +286,8 @@ private:
     };
 
 };
+
+using AlgorithmParallelNaiveV2 = AlgorithmParallelNaiveV2Impl<>;
+using AlgorithmParallelNaiveV2NoPrefetch = AlgorithmParallelNaiveV2Impl<0>;
 
 }
