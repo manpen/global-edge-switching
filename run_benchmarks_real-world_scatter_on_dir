@@ -24,12 +24,16 @@ if test -d "$category" ; then
   if test -d "$graph" ; then
    graph_name="$(basename $graph)"
    graph_edges="$graph/""$graph_name.simp-undir-edges"
-   echo "Benchmarking robin on $graph_name"
-   bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_robin_""$spe""_1"
-   "$benchmark_executable" bench "$graph_edges" 1 "$repeats" robin "$spe" verbose >> "$bench_file"
-   echo "Benchmarking global-no-wait on $graph_name"
-   bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_global-no-wait_""$spe""_64"
-   "$benchmark_executable" bench "$graph_edges" 64 "$repeats" global-no-wait "$spe" verbose >> "$bench_file"
+   for algo in "robin-v2" "robin-v2-no-prefetch" "global-robin" "global-robin-no-prefetch" ; do
+    echo "Benchmarking $algo on $graph_name"
+    bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_global-robin_""$spe""_1"
+    "$benchmark_executable" bench "$graph_edges" 1 "$repeats" global-robin "$spe" verbose >> "$bench_file"
+   done
+   for algo in "global-no-wait" "global-no-wait-no-prefetch" ; do
+    echo "Benchmarking $algo on $graph_name"
+    bench_file="$bench_dir/real-world_scatter/$category_name/""$graph_name""_global-no-wait_""$spe""_32"
+    "$benchmark_executable" bench "$graph_edges" 32 "$repeats" global-no-wait "$spe" verbose >> "$bench_file"
+   done
   fi
  done
 fi

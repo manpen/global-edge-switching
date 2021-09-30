@@ -11,6 +11,6 @@ if ! test -d "$bench_dir/real-world_scatter" ; then
 fi
 
 graph_dir="/data/networks/network-repository.com"
-for category in "bio" "ca" "cit" "eco" "econ" "email" "heter" "ia" "inf" "labeled" "power" "protein" "proximity" "rec" "retweet_graphs" "road" "sc" "soc" "socfb" "tech" "web" ; do
+for category in "bn" "massive" ; do
  ./run_benchmarks_real-world_scatter_on_dir "$exe" "$graph_dir/$category"
 done
