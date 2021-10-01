@@ -57,7 +57,7 @@ NetworKit::Graph read_graph(std::string filename) {
             node_t u = std::stoll(line.substr(0, sep));
             node_t v = std::stoll(line.substr(sep + 1));
 
-            if (graph.hasEdge(u, v)) {
+            if (false && graph.hasEdge(u, v)) {
                 ++mutli_edges;
                 continue;
             }
@@ -169,6 +169,9 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {
             es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<true>>(graph);
+        } else if (algo == "global-no-wait-stats") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<true>>(graph);
+            es->enable_logging();
         } else if (algo == "global-no-wait-no-prefetch") {
             es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<false>>(graph);
         } else if (algo == "global-no-wait-old") {
