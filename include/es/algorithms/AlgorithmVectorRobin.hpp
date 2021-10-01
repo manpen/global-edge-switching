@@ -7,12 +7,14 @@
 #include <shuffle/algorithms/InplaceScatterShuffle.hpp>
 
 #include <tsl/robin_set.h>
+#include <tsl/robin_map.h>
+
 #include <es/algorithms/AlgorithmBase.hpp>
 #include <tlx/container/btree_set.hpp>
 
 namespace es {
 
-template<bool Global, bool UsePrefetching = true>
+template<bool Global, bool UsePrefetching = true, bool CaptureStats = false>
 struct AlgorithmVectorRobin : public AlgorithmBase {
 public:
     AlgorithmVectorRobin(const NetworKit::Graph &graph, double load_factor = 0.25) : AlgorithmBase(graph) {
@@ -49,8 +51,10 @@ public:
                 });
 
                 num_switches -= num_switch_in_global_step;
-                if (!num_switches)
+                if (!num_switches) {
+                    report_stats();
                     return successful_switches;
+                }
             }
 
         } else {
@@ -96,8 +100,18 @@ private:
     using Set = tsl::robin_set<edge_t, edge_hash_crc32>;
     std::vector<edge_t> edge_list_;
     Set edge_set_;
+    std::vector<std::pair<size_t, size_t>> outcome_at_depth_;
 
     double lazyness_{0.01};
+
+    void report_stats() {
+        if constexpr(CaptureStats) {
+            std::cout << "#robin-stat-depth";
+            for (auto &oc: outcome_at_depth_)
+                std::cout << ':' << oc.first << ',' << oc.second;
+            std::cout << std::endl;
+        }
+    }
 
     // carries out num_switches where the edge index and direction is queried using the
     // nextDescriptor callback. Returns the number of successful switches
@@ -139,14 +153,14 @@ private:
 
                 swap_if(direction, x, y);
 
+                e3 = to_edge(u, x);
+                e4 = to_edge(v, y);
+
                 // rewire to u-x, v-y
                 failed = u == x || v == y;
                 if (failed) {
                     return;
                 }
-
-                e3 = to_edge(u, x);
-                e4 = to_edge(v, y);
 
                 hash_e3 = edge_set->prefetch(e3);
                 hash_e4 = edge_set->prefetch(e4);
@@ -186,16 +200,30 @@ private:
         };
 
         // invoke the switching class
-
         size_t successful_switches = 0;
+
+        tsl::robin_map<edge_t, unsigned, edge_hash_crc32> depth;
+        depth.reserve(2*num_switches);
+        auto commit_switch = [&] (Switch &sw) {
+            auto success = sw.commit();
+            successful_switches += success;
+
+            if constexpr(CaptureStats) {
+                auto d = std::max(depth[sw.e3]++, depth[sw.e4]++);
+                while(outcome_at_depth_.size() <= d)
+                    outcome_at_depth_.emplace_back(0, 0);
+
+                (success ? outcome_at_depth_[d].second : outcome_at_depth_[d].first) += 1;
+            }
+        };
+
         if (!kPrefetchSwitches || num_switches < kPrefetchSwitches) {
             // base case without prefetch
             for (size_t i = 0; i < num_switches; ++i) {
                 auto[index1, index2, direction] = nextDescriptor();
 
                 Switch sw(edge_list_.data() + index1, edge_list_.data() + index2, direction, &edge_set_);
-
-                successful_switches += sw.commit();
+                commit_switch(sw);
             }
 
         } else {
@@ -215,16 +243,15 @@ private:
             assert(prefetch_cursor == 0);
 
             for (size_t i = kPrefetchSwitches; i < num_switches; ++i) {
-                successful_switches += prefetch_pipeline[prefetch_cursor].commit();
+                commit_switch(prefetch_pipeline[prefetch_cursor]);
                 prefetch_switch();
             }
 
             for (size_t i = 0; i < kPrefetchSwitches; ++i) {
-                prefetch_pipeline[prefetch_cursor].commit();
+                commit_switch(prefetch_pipeline[prefetch_cursor]);
                 prefetch_cursor = (prefetch_cursor + 1) % kPrefetchSwitches;
             }
         }
-
         return successful_switches;
     }
 

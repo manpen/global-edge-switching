@@ -129,7 +129,7 @@ public:
 
             num_switches -= chunk_size;
 
-            if (logging_ > 1)
+            if (log_level_ > 1)
                 timer.report("chunk");
 
             if (!num_switches)
@@ -138,7 +138,7 @@ public:
             edge_set_.rebuild();
         }
 
-        if (logging_) {
+        if (log_level_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
                       << ",num_sync_retries=" << sync_retries << ",num_sync_collisions=" << sync_collisions << std::endl;
         }
@@ -155,16 +155,11 @@ public:
         return result;
     }
 
-    void enable_logging(unsigned val = 1) {
-        logging_ = val;
-    }
-
 private:
     std::unique_ptr<std::atomic<edge_t>[]> edge_list_;
     edge_set_type edge_set_;
     size_t num_edges_;
     double chunk_factor_;
-    unsigned logging_{0};
 
     template<bool DoPrefetch = true>
     struct Switch {

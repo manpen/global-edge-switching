@@ -143,6 +143,8 @@ void benchmark_on_file(int argc, const char** argv) {
             es = std::make_unique<AlgorithmVectorRobin<false>>(graph);
         } else if (algo == "global-robin") {
             es = std::make_unique<AlgorithmVectorRobin<true>>(graph);
+        } else if (algo == "global-robin-stats") {
+            es = std::make_unique<AlgorithmVectorRobin<true, true, true>>(graph);
         } else if (algo == "robin-v2-no-prefetch") {
             es = std::make_unique<AlgorithmVectorRobin<false, false>>(graph);
         } else if (algo == "global-robin-no-prefetch") {

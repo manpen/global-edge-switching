@@ -105,11 +105,11 @@ public:
                 }
             }
 
-            if (logging_ > 1)
+            if (log_level_ > 1)
                 timer.report("round");
         }
 
-        if (logging_) {
+        if (log_level_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
                       << ",num_sync_retries=" << sync_retries << ",num_sync_collisions=" << sync_collisions << std::endl;
         }
@@ -126,15 +126,10 @@ public:
         return result;
     }
 
-    void enable_logging(unsigned val = 1) {
-        logging_ = val;
-    }
-
 private:
     std::vector<edge_t> edge_list_;
     edge_set_type edge_set_;
     size_t num_edges_;
-    unsigned logging_{0};
     double laziness_;
 
     template<bool DoPrefetch = true>
