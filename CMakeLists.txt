@@ -67,5 +67,8 @@ target_link_libraries(count_duplicates libedgeswitch)
 add_executable(convert_large convert_large.cpp)
 target_link_libraries(convert_large libedgeswitch)
 
+add_executable(nowait_round_stats nowait_round_stats.cpp)
+target_link_libraries(nowait_round_stats libedgeswitch)
+
 enable_testing()
 add_subdirectory(source/tests)
