@@ -45,7 +45,7 @@
 using namespace es;
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
+void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937_64 &gen, bool detailed = true) {
     Algo es(graph);
 
     {
@@ -53,6 +53,8 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
         edge_t m = graph.numberOfEdges();
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
+
+        es.enable_logging();
 
         ITT_ENABLED(__itt_pause());
         const auto sucessful_switches = es.do_switches(gen, requested_switches);

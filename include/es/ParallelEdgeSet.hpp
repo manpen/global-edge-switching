@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <memory>
+#include <thread>
 
 #include <omp.h>
 
@@ -160,12 +161,21 @@ public:
         __atomic_store_n(it, kDeleted, __ATOMIC_RELEASE);
     }
 
-    void erase(node_type a, node_type b) {
+    void blocking_erase(node_type a, node_type b) {
         auto reference_unlocked = build_bucket(a, b);
         auto reference_payload  = get_payload(reference_unlocked);
 
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
+
+        blocking_erase(it, a, b);
+    }
+
+    void blocking_erase(hint_t hint, node_type a, node_type b) {
+        auto reference_unlocked = build_bucket(a, b);
+        auto reference_payload  = get_payload(reference_unlocked);
+
+        auto it = hint;
 
         while (true) {
             auto value = reference_unlocked;
@@ -176,8 +186,10 @@ public:
                 return;
 
             assert(value != kEmpty);
-
-            if (get_payload(value) == reference_payload) continue;
+            if (TLX_UNLIKELY(get_payload(value) == reference_payload)) {
+                std::this_thread::yield();
+                continue;
+            }
 
             ++it;
             if (TLX_UNLIKELY(it == data_end_))
@@ -245,92 +257,6 @@ public:
         std::swap(*this, *rebuild_instance_);
         rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
     }
-
-    // rebuilding
-    void rebuild(std::atomic<size_t>* non_empty) {
-        auto size = storage_.size() - 1;
-        bool fresh_rebuild_instance = !rebuild_instance_;
-        if (fresh_rebuild_instance) {
-            rebuild_instance_ = std::make_unique<ParallelEdgeSet<Growth>>(size, 1.0, hash_bias_);
-        }
-
-        size_t empty_slots = 0;
-        size_t num_items = 0;
-
-        std::vector<size_t> local_counts(omp_get_max_threads());
-        std::vector<size_t> partial_sums(omp_get_max_threads());
-
-        constexpr size_t kChuckSize = 1 << 14;
-
-        #pragma omp parallel reduction(+:empty_slots, num_items)
-        {
-            const auto tid = static_cast<unsigned>(omp_get_thread_num());
-
-            if (!fresh_rebuild_instance) {
-                // parallel fill(rebuild_instance->data_begin, end, kEmpty);
-                auto data = rebuild_instance_->data_begin_;
-                #pragma omp for schedule(dynamic,kChuckSize)
-                for (size_t i = 0; i != size; ++i) {
-                    data[i] = kEmpty;
-                }
-            }
-
-            size_t local_count = 0;
-            #pragma omp for schedule(static, kChuckSize)
-            for (size_t i = 0; i != size; ++i) {
-                auto value = data_begin_[i];
-                empty_slots += (value == kEmpty);
-                local_count += !(value == kEmpty || value == kDeleted);
-            }
-
-            #pragma omp critical
-            local_counts[tid] = local_count;
-
-            #pragma omp barrier
-
-            #pragma omp single // implies barrier at end
-            std::partial_sum(begin(local_counts), end(local_counts), begin(partial_sums));
-
-            auto my_writer = non_empty + (partial_sums[tid] - local_count);
-
-            #pragma omp for schedule(static, kChuckSize)
-            for (size_t i = 0; i != size; ++i) {
-                auto value = data_begin_[i];
-                if (value == kEmpty || value == kDeleted)
-                    continue;
-
-                assert(!is_locked(value));
-
-                auto fast_insert = [] (auto& inst, auto value)
-                {
-                    auto bucket = inst.growth_.bucket_for_hash(inst.hash(inst.get_payload(value)));
-                    auto it = inst.data_begin_ + bucket;
-
-                    while (true) {
-                        auto empty = kEmpty;
-                        if (__atomic_compare_exchange_n(it, &empty, value, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME)) {
-                            return it;
-                        }
-
-                        ++it;
-                        if (TLX_UNLIKELY(it == inst.data_end_))
-                            it = inst.data_begin_;
-                    }
-                };
-                *(my_writer++) = rebuild_instance_->bucket_of(fast_insert(*rebuild_instance_, value));
-
-                ++num_items;
-            }
-        }
-
-        // we will now switch the rebuild instance with us; only one thing we have to make sure:
-        // we do not want to switch the pointer to the rebuild instance (next time, we will rebuild
-        // it will start again from *this and not from *rebuild_instance).
-        auto ptr_to_org_rebuild_instance = rebuild_instance_.get();
-        std::swap(*this, *rebuild_instance_);
-        rebuild_instance_ = std::move(ptr_to_org_rebuild_instance->rebuild_instance_);
-    }
-
 
     [[nodiscard]] size_t capacity() const noexcept {
         return max_size_;

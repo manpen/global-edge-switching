@@ -184,6 +184,7 @@ private:
 
         bool commit() {
             if (failed) {
+                retries = 0;
                 return false;
             }
 
@@ -192,11 +193,6 @@ private:
             auto[U, V] = to_nodes(e3);
             auto[X, Y] = to_nodes(e4);
 
-            if (failed) {
-                retries = 0;
-                return false;
-            }
-
             retries = -1;
             while (true) {
                 if (++retries) {
@@ -204,37 +200,49 @@ private:
                     std::this_thread::yield();
                 }
 
-                auto ticket1 = edge_set->acquire(e1_hint, u, v, tid).second;
-                if (!ticket1) continue;
+                constexpr bool kUseBlockingErase = true;
+                edge_set_type::iterator_type ticket1, ticket2;
 
-                auto ticket2 = edge_set->acquire(e2_hint, x, y, tid).second;
-                if (!ticket2) {
-                    edge_set->release(ticket1);
-                    continue;
+                if (!kUseBlockingErase) {
+                    ticket1 = edge_set->acquire(e1_hint, u, v, tid).second;
+                    if (!ticket1) continue;
+
+                    ticket2 = edge_set->acquire(e2_hint, x, y, tid).second;
+                    if (!ticket2) {
+                        edge_set->release(ticket1);
+                        continue;
+                    }
                 }
 
                 auto ticket3 = edge_set->insert(e3_hint, U, V, tid);
                 if (!ticket3) {
-                    // edge e3 exists: reject
-                    edge_set->release(ticket1);
-                    edge_set->release(ticket2);
+                    if (!kUseBlockingErase) {
+                        edge_set->release(ticket1);
+                        edge_set->release(ticket2);
+                    }
                     return false;
                 }
 
                 auto ticket4 = edge_set->insert(e4_hint, X, Y, tid);
                 if (!ticket4) {
-                    // edge e4 exists: reject
+                    if (!kUseBlockingErase) {
+                        edge_set->release(ticket1);
+                        edge_set->release(ticket2);
+                    }
                     edge_set->erase_and_release(ticket3);
-                    edge_set->release(ticket1);
-                    edge_set->release(ticket2);
                     return false;
                 }
 
                 // successful
                 edge_list[index] = e3;
                 edge_list[index + 1] = e4;
-                edge_set->erase_and_release(ticket1);
-                edge_set->erase_and_release(ticket2);
+                if (kUseBlockingErase) {
+                    edge_set->blocking_erase(e1_hint, u, v);
+                    edge_set->blocking_erase(e2_hint, x, y);
+                } else {
+                    edge_set->erase_and_release(ticket1);
+                    edge_set->erase_and_release(ticket2);
+                }
                 edge_set->release(ticket3);
                 edge_set->release(ticket4);
                 return true;

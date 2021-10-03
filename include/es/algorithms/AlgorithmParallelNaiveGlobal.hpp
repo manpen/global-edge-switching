@@ -94,8 +94,8 @@ public:
                     edge_set_.release(ticket4);
 
                     // and erase the old ones
-                    edge_set_.erase(u, v);
-                    edge_set_.erase(x, y);
+                    edge_set_.blocking_erase(u, v);
+                    edge_set_.blocking_erase(x, y);
 
                     ++successful_switches;
                 }
