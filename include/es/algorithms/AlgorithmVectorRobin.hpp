@@ -30,7 +30,7 @@ public:
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
+    size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = true) {
         assert(!edge_list_.empty());
         const auto m = edge_list_.size();
 
@@ -94,6 +94,10 @@ public:
             result.addEdge(u, v);
         }
         return result;
+    }
+
+    const std::vector<edge_t>& get_edgelist() const {
+        return edge_list_;
     }
 
 private:
