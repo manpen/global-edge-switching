@@ -174,7 +174,7 @@ public:
         for (size_t snapshotid = 0; snapshotid < s; snapshotid++) {
             const auto snapshot = snapshots[snapshotid];
             if (last_reported_snapshot + min_chain_length / 10 < snapshot) {
-                std::cout << "# snapshot " << snapshot << " / " << min_chain_length << std::endl;
+                std::cout << "# snapshot " << snapshot << " / " << min_chain_length << " for " << output_fn_prefix << std::endl;
                 last_reported_snapshot = snapshot;
             }
 
@@ -266,6 +266,8 @@ public:
             last_snapshot = snapshot;
             curr_graph = es.get_graph();
         }
+
+        std::cout << "# done switching " << output_fn_prefix << std::endl;
 
         // compute snapshots to consider per thinning
         std::vector<std::vector<size_t>> thinning_snapshots(thinnings.size());
