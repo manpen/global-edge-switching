@@ -36,7 +36,6 @@
 #include <es/algorithms/AlgorithmGlobal.hpp>
 
 
-
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
