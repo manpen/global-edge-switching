@@ -3,6 +3,7 @@
 #include <google/dense_hash_set>
 
 #include <es/RandomBits.hpp>
+#include <shuffle/random/UniformRange.hpp>
 #include <es/algorithms/AlgorithmBase.hpp>
 
 namespace es {

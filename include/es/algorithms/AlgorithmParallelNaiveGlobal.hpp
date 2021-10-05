@@ -40,15 +40,6 @@ public:
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
-        std::vector<std::mt19937_64> gens;
-        {
-            auto n = omp_get_max_threads();
-            gens.reserve(n);
-            while(n--) {
-                gens.emplace_back(gen());
-            }
-        }
-
         size_t num_rounds = 2 * (num_switches / edge_list_.size());
 
         size_t successful_switches = 0;
@@ -103,18 +94,18 @@ public:
                     edge_set_.release(ticket4);
 
                     // and erase the old ones
-                    edge_set_.erase(u, v);
-                    edge_set_.erase(x, y);
+                    edge_set_.blocking_erase(u, v);
+                    edge_set_.blocking_erase(x, y);
 
                     ++successful_switches;
                 }
             }
 
-            if (logging_)
+            if (log_level_)
                 timer.report("round");
         }
 
-        if (logging_) {
+        if (log_level_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
                       << ",num_sync_rejects=" << sync_rejects << "\n";
         }
@@ -131,14 +122,9 @@ public:
         return result;
     }
 
-    void enable_logging(bool val = true) {
-        logging_ = val;
-    }
-
 private:
     std::vector<edge_t> edge_list_;
     edge_set_type edge_set_;
-    bool logging_{false};
 
 };
 

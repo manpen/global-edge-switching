@@ -2,6 +2,7 @@
 
 #include <random>
 #include <vector>
+#include <numeric>
 
 #include <es/EdgeDependenciesNoWaitV4.hpp>
 #include <es/RandomBits.hpp>
@@ -11,22 +12,64 @@
 
 namespace es {
 
+template <bool UsePrefetching = true>
 struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
     using EdgeDependenciesStore = EdgeDependenciesNoWaitV4<edge_hash_crc32>;
-    static constexpr size_t kPrefetch = 1;
+    static constexpr size_t kPrefetch = UsePrefetching ? 1 : 0;
 
     AlgorithmParallelGlobalNoWaitV4(const NetworKit::Graph &graph, double lazyness = 0.01, double load_factor = 2.0) //
         : AlgorithmBase(graph), edge_dependencies(graph.numberOfEdges(), load_factor), lazyness_(lazyness) {
         assert(0. <= lazyness && lazyness < 1.0);
-        edge_list_.reserve(graph.numberOfEdges());
         new_edge_list_.resize(graph.numberOfEdges());
 
-        graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
-            auto edge = to_edge(u, v);
-            assert(edge >> 63 == 0);
+        if (graph.numberOfEdges() < 1e6) {
+            edge_list_.reserve(graph.numberOfEdges());
+            graph.forEdges([&](NetworKit::node u, NetworKit::node v) {
+                auto edge = to_edge(u, v);
+                assert(edge >> 63 == 0);
 
-            edge_list_.emplace_back(edge);
-        });
+                edge_list_.emplace_back(edge);
+            });
+        } else {
+            std::vector<size_t> local_counts(omp_get_max_threads());
+            std::vector<size_t> partial_sums(omp_get_max_threads());
+            edge_list_.resize(graph.numberOfEdges());
+
+            #pragma omp parallel
+            {
+                const auto tid = static_cast<size_t>(omp_get_thread_num());
+                const auto num_threads = static_cast<size_t>(omp_get_num_threads());
+                const auto n = graph.numberOfNodes();
+
+                size_t local_count = 0;
+                for(auto u = tid; u < n; u += num_threads) {
+                    for (auto v : graph.neighborRange(u)) {
+                        if (v > u) continue;
+                        ++local_count;
+                    }
+                }
+                #pragma omp critical
+                local_counts[tid] = local_count;
+
+                #pragma omp barrier
+
+                #pragma omp single // implies barrier at end
+                std::partial_sum(begin(local_counts), end(local_counts), begin(partial_sums));
+                assert(partial_sums.back() == graph.numberOfEdges());
+
+                auto it = begin(edge_list_) + (partial_sums[tid] - local_count);
+                for(auto u = tid; u < n; u += num_threads) {
+                    for (auto v : graph.neighborRange(u)) {
+                        if (v > u) continue;
+
+                        auto edge = to_edge(u, v);
+                        assert(edge >> 63 == 0);
+
+                        *(it++) = edge;
+                    }
+                }
+            }
+        }
     }
 
     size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = false) {
@@ -54,7 +97,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             new_edge_list_.swap(edge_list_);
 
 #ifndef NDEBUG
-            {
+            if (false) {
                 auto sorted = edge_list_;
                 std::sort(sorted.begin(), sorted.end());
                 auto copy = sorted;
@@ -84,13 +127,21 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             new_edge_list_[i] = edge_list_[i];
         }
 
-        std::atomic<bool> all_done = true;
+        std::atomic<size_t> total_remaining = 0;
+        std::atomic<size_t> total_successful_switches = 0;
         constexpr auto kInvalidEdge = std::numeric_limits<edge_t>::max();
+
+        if (log_level_) {
+            std::cout << "#start " << num_switches << '\n';
+        }
 
         if (autocorrelation) omp_set_num_threads(1);
 
 #pragma omp parallel reduction(+ : successful_switches)
         {
+            size_t successful_switches = 0;
+            incpwl::ScopedTimer timer;
+
             auto fetch_iterators = [&](size_t switch_id) -> std::array<EdgeDependenciesStore::iterator_t, 4> {
                 auto e1 = decode_iterator(edge_list_[2 * switch_id]);
                 auto e2 = decode_iterator(edge_list_[2 * switch_id + 1]);
@@ -100,11 +151,6 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             };
 
             auto try_process = [&](auto switch_id) {
-                if (logging) {
-#pragma omp critical
-                    std::cout << "A" << switch_id << " ";
-                }
-
                 if (edge_list_[2 * switch_id] == kInvalidEdge) // encodes trivial reject
                     return true;
 
@@ -310,26 +356,40 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
                 }
             }
 
+            size_t previous_total_remaining = 0;
+            size_t previous_sucessful_switches = 0;
+            double previous_timer = 0.0;
             while (true) {
                 switch_ids.swap(delayed_switch_ids);
                 delayed_switch_ids.clear();
                 delayed_switch_ids.reserve(switch_ids.size() / 8);
 
-                // check whether we can quit
                 {
+                    // synchronize progress made so far
                     if (!switch_ids.empty())
-                        all_done = false;
+                        total_remaining += switch_ids.size();
+
+                    if (successful_switches)
+                        total_successful_switches += successful_switches;
 
 #pragma omp barrier
+                    auto remaining = total_remaining.load(std::memory_order_relaxed);
 
-                    if (all_done)
+                    #pragma omp master
+                    if (log_level_) {
+                        auto time = timer.elapsedSeconds();
+                        std::cout << "#remaining " << (remaining - previous_total_remaining) << "," << (total_successful_switches.load(std::memory_order_relaxed) - previous_sucessful_switches) << ',' << (time - previous_timer) << '\n';
+                        previous_sucessful_switches = total_successful_switches.load(std::memory_order_relaxed);
+                        previous_timer = time;
+                    }
+
+                    if (previous_total_remaining == remaining)
                         break;
 
-#pragma omp barrier
-
-                    all_done = true;
+                    previous_total_remaining = remaining;
                 }
 
+                successful_switches = 0;
                 auto num_remaining_switches = switch_ids.size();
 
                 // retry to acquire edge
@@ -352,7 +412,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             }
         }
 
-        return successful_switches;
+        return total_successful_switches.load(std::memory_order_relaxed);
     }
 
     void do_switches(const std::vector<size_t> &rho, size_t num_threads, bool autocorrelation = false) {

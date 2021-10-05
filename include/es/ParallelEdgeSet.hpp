@@ -2,8 +2,13 @@
 
 #include <cassert>
 #include <atomic>
+#include <numeric>
+#include <algorithm>
 #include <vector>
 #include <memory>
+#include <thread>
+
+#include <omp.h>
 
 #include <nmmintrin.h>
 
@@ -12,6 +17,7 @@
 
 #include <tsl/robin_growth_policy.h>
 
+#include <es/Graph.hpp>
 #include <es/ScopedTimer.hpp>
 
 template<typename Growth = tsl::rh::power_of_two_growth_policy<2>>
@@ -29,7 +35,10 @@ public:
     static constexpr size_t kBitsPerNode = 28;
 #endif
 
+    using hint_t = iterator_type;
+
     static constexpr size_t kBitsPerPayload = 2 * kBitsPerNode;
+    static constexpr node_type kNodeMask = (node_type(1) << kBitsPerNode) - 1;
 
     static constexpr value_type kEmpty = -1;
     static constexpr value_type kDeleted = kEmpty - 1;
@@ -49,15 +58,57 @@ public:
 
     ParallelEdgeSet &operator=(ParallelEdgeSet &&) = default;
 
+    template <bool DoPrefetch = true>
+    hint_t prefetch(node_type a, node_type b) const noexcept {
+        auto reference_payload = build_bucket(a, b, 0);
+        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
+        auto it = data_begin_ + bucket;
+
+        if (DoPrefetch)
+            __builtin_prefetch(it, 1, 1);
+
+        return it;
+    }
+
+    [[nodiscard]] size_t bucket_of(iterator_type it) const noexcept {
+        assert(data_begin_ <= it);
+        assert(it <= data_end_);
+        return static_cast<size_t>(std::distance(data_begin_, it));
+    }
+
+    void prefetch_bucket(size_t bucket) const noexcept {
+        auto it = data_begin_ + bucket;
+        __builtin_prefetch(it, 1, 1);
+    }
+
+    [[nodiscard]] iterator_type lock_bucket(size_t bucket, unsigned tid) noexcept {
+        assert(bucket < std::distance(data_begin_, data_end_));
+        auto it = data_begin_ + bucket;
+        while(true) {
+            auto value = __atomic_load_n(it, __ATOMIC_CONSUME);
+            if (value == kEmpty || value == kDeleted || is_locked(value)) return nullptr;
+
+            auto locked = build_bucket(value, tid);
+            auto did_acquire = __atomic_compare_exchange_n(it, &value, locked, false, __ATOMIC_RELEASE, __ATOMIC_CONSUME);
+
+            if (did_acquire)
+                return it;
+        }
+    }
+
+    [[nodiscard]] std::pair<bool, iterator_type> acquire(node_type a, node_type b, unsigned tid) noexcept {
+        auto reference_payload = build_bucket(a, b, 0);
+        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
+        auto it = data_begin_ + bucket;
+        return acquire(it, a, b, tid);
+    }
+
     // returns pair {found, ticket} --- the first entry is true iff the item is in the set;
     // the second entry returns a pointer if the bucket could be locked
-    [[nodiscard]] std::pair<bool, iterator_type> acquire(node_type a, node_type b, unsigned tid) noexcept {
+    [[nodiscard]] std::pair<bool, iterator_type> acquire(hint_t it, node_type a, node_type b, unsigned tid) noexcept {
         auto reference_unlocked = build_bucket(a, b);
         auto reference_locked   = build_bucket(a, b, tid);
         auto reference_payload  = get_payload(reference_unlocked);
-
-        auto bucket = growth_.bucket_for_hash(hash(reference_payload));
-        auto it = data_begin_ + bucket;
 
         while (true) {
             auto value = reference_unlocked;
@@ -85,6 +136,13 @@ public:
         return insert(reference_locked);
     }
 
+    [[nodiscard]] iterator_type insert(hint_t hint, node_type a, node_type b, unsigned tid = -1) noexcept {
+        const auto reference_locked = build_bucket(a, b, tid);
+        const auto reference_payload = get_payload(reference_locked);
+
+        return insert(hint, reference_payload, reference_locked);
+    }
+
     void release(iterator_type it) {
         assert(data_begin_ <= it);
         assert(it < data_end_);
@@ -103,12 +161,21 @@ public:
         __atomic_store_n(it, kDeleted, __ATOMIC_RELEASE);
     }
 
-    void erase(node_type a, node_type b) {
+    void blocking_erase(node_type a, node_type b) {
         auto reference_unlocked = build_bucket(a, b);
         auto reference_payload  = get_payload(reference_unlocked);
 
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
+
+        blocking_erase(it, a, b);
+    }
+
+    void blocking_erase(hint_t hint, node_type a, node_type b) {
+        auto reference_unlocked = build_bucket(a, b);
+        auto reference_payload  = get_payload(reference_unlocked);
+
+        auto it = hint;
 
         while (true) {
             auto value = reference_unlocked;
@@ -119,14 +186,17 @@ public:
                 return;
 
             assert(value != kEmpty);
-
-            if (get_payload(value) == reference_payload) continue;
+            if (TLX_UNLIKELY(get_payload(value) == reference_payload)) {
+                std::this_thread::yield();
+                continue;
+            }
 
             ++it;
             if (TLX_UNLIKELY(it == data_end_))
                 it = data_begin_;
         }
     }
+
 
     // rebuilding
     void rebuild() {
@@ -192,6 +262,16 @@ public:
         return max_size_;
     }
 
+    [[nodiscard]] std::tuple<node_type, node_type, value_type, bool> fetch(size_t bucket) const noexcept {
+        return fetch(data_begin_ + bucket);
+    }
+
+    [[nodiscard]] std::tuple<node_type, node_type, value_type, bool> fetch(iterator_type it) const noexcept {
+        auto edge = __atomic_load_n(it, __ATOMIC_CONSUME);
+        auto payload = get_payload(edge);
+        return {payload & kNodeMask, (payload >> kBitsPerNode), payload, payload == kEmpty || payload == kDeleted};
+    }
+
 private:
     size_t max_size_;
     Growth growth_;
@@ -212,6 +292,11 @@ private:
         auto bucket = growth_.bucket_for_hash(hash(reference_payload));
         auto it = data_begin_ + bucket;
 
+        return insert<EnsureUnique>(it, reference_payload, reference_locked);
+    }
+
+    template <bool EnsureUnique = true>
+    iterator_type insert(iterator_type it, value_type reference_payload, value_type reference_locked) noexcept {
         constexpr auto first_try = kEmpty;
         constexpr auto second_try = (first_try == kEmpty) ? kDeleted : kEmpty;
         value_type value_at_it = first_try;
@@ -265,15 +350,16 @@ private:
     }
 
     [[nodiscard]] constexpr value_type build_bucket(node_type a, node_type b, unsigned tid = -1) const {
-        auto tmp = (a ^ b) * (a > b);
-        a ^= tmp;
-        b ^= tmp;
+        es::swap_if(a > b, a, b);
 
         assert(a < (node_type(1) << kBitsPerNode));
         assert(b < (node_type(1) << kBitsPerNode));
 
-        return static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode) |
-               (static_cast<value_type>(tid) << kBitsPerPayload);
+        return build_bucket(static_cast<value_type>(a) | (static_cast<value_type>(b) << kBitsPerNode), tid);
+    }
+
+    [[nodiscard]] constexpr value_type build_bucket(value_type unlocked, unsigned tid = -1) const {
+        return get_payload(unlocked) | (static_cast<value_type>(tid) << kBitsPerPayload);
     }
 
     [[nodiscard]] constexpr value_type get_payload(value_type tmp) const {
@@ -301,4 +387,6 @@ private:
             return value ^ (0x1234567 * l + 0x87654321 * h);
         }
     }
+
+
 };

@@ -8,6 +8,10 @@
 #include <string_view>
 #include <functional>
 
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
 #include <tsl/hopscotch_set.h>
 #include <tsl/robin_set.h>
 
@@ -20,9 +24,17 @@
 #include <es/algorithms/AlgorithmVectorSet.hpp>
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveV2.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobalV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
+#include <es/algorithms/AlgorithmVectorRobin.hpp>
+#include <es/algorithms/AlgorithmNetworKit.hpp>
+#include <es/algorithms/AlgorithmGenGraph.hpp>
+#include <es/algorithms/AlgorithmGlobal.hpp>
+
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -34,6 +46,7 @@ NetworKit::Graph read_graph(std::string filename) {
     NetworKit::Graph graph;
     std::ifstream ifile{filename};
     std::string line;
+    size_t mutli_edges = 0;
     while (getline(ifile, line)) {
         size_t sep = line.find(',');
         if (line.starts_with('%')) {
@@ -42,9 +55,17 @@ NetworKit::Graph read_graph(std::string filename) {
         } else {
             node_t u = std::stoll(line.substr(0, sep));
             node_t v = std::stoll(line.substr(sep + 1));
+
+            if (false && graph.hasEdge(u, v)) {
+                ++mutli_edges;
+                continue;
+            }
+
             graph.addEdge(u, v);
         }
     }
+    if (mutli_edges)
+        std::cout << "Removed " << mutli_edges << " multi-edges\n";
     return graph;
 }
 
@@ -99,17 +120,17 @@ void benchmark_on_file(int argc, const char** argv) {
     std::string algo = argc > 5 ? argv[5] : "global-no-wait";
     size_t switches = argc > 6 ? std::stoi(argv[6]) : 10;
     bool detailed = argc > 7 ? std::string(argv[7]) == "verbose" : false;
+    unsigned timeout = argc > 8 ? std::stoi(argv[8]) : 0;
 
-    std::cout << "Starting experiment with parameters" << std::endl
-              << "algo=" << algo << std::endl
-              << "switches=" << switches << "m" << std::endl
-              << "file=" << filename << std::endl
-              << "n=" << graph.numberOfNodes() << std::endl
-              << "m=" << graph.numberOfEdges() << std::endl
-              << "p=" << threads << std::endl
-              << "repeats=" << repeats << std::endl << std::endl;
-
-    omp_set_num_threads(threads);
+    std::cout << "Starting experiment with parameters\n"
+              << "algo=" << algo << "\n"
+              << "switches=" << switches << "m" << "\n"
+              << "file=" << filename << "\n"
+              << "n=" << graph.numberOfNodes() << "\n"
+              << "m=" << graph.numberOfEdges() << "\n"
+              << "p=" << threads << "\n"
+              << "repeats=" << repeats << "\n"
+              << "timeout=" << timeout << "\n" << std::endl;
 
     std::unique_ptr<AlgorithmBase> es;
     double init_time;
@@ -117,38 +138,98 @@ void benchmark_on_file(int argc, const char** argv) {
         incpwl::ScopedTimer timer;
         if (algo == "robin") {
             es = std::make_unique<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
+        } else if (algo == "robin-v2") {
+            es = std::make_unique<AlgorithmVectorRobin<false>>(graph);
+        } else if (algo == "global-robin") {
+            es = std::make_unique<AlgorithmVectorRobin<true>>(graph);
+        } else if (algo == "global-robin-stats") {
+            es = std::make_unique<AlgorithmVectorRobin<true, true, true>>(graph);
+        } else if (algo == "robin-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmVectorRobin<false, false>>(graph);
+        } else if (algo == "global-robin-no-prefetch") {
+            es = std::make_unique<AlgorithmVectorRobin<true, false>>(graph);
         } else if (algo == "naive") {
             es = std::make_unique<AlgorithmParallelNaive>(graph);
+        } else if (algo == "naive-v2") {
+            es = std::make_unique<AlgorithmParallelNaiveV2>(graph);
+            static_cast<AlgorithmParallelNaiveV2*>(es.get())->enable_logging();
+        } else if (algo == "naive-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelNaiveV2NoPrefetch>(graph);
+            static_cast<AlgorithmParallelNaiveV2NoPrefetch*>(es.get())->enable_logging();
         } else if (algo == "global-naive") {
             es = std::make_unique<AlgorithmParallelNaiveGlobal>(graph);
+        } else if (algo == "global-naive-v2") {
+            es = std::make_unique<AlgorithmParallelNaiveGlobalV2>(graph);
+            static_cast<AlgorithmParallelNaiveGlobalV2*>(es.get())->enable_logging();
+        } else if (algo == "global-naive-v2-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelNaiveGlobalV2NoPrefetch>(graph);
+            static_cast<AlgorithmParallelNaiveGlobalV2NoPrefetch*>(es.get())->enable_logging();
         } else if (algo == "global") {
             es = std::make_unique<AlgorithmParallelGlobal>(graph);
         } else if (algo == "global-no-wait") {
-            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4>(graph);
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<true>>(graph);
+        } else if (algo == "global-no-wait-stats") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<true>>(graph);
+            es->enable_logging();
+        } else if (algo == "global-no-wait-no-prefetch") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV4<false>>(graph);
+        } else if (algo == "global-no-wait-old") {
+            es = std::make_unique<AlgorithmParallelGlobalNoWaitV2>(graph);
+        } else if (algo == "networkit") {
+            es = std::make_unique<AlgorithmNetworKit>(graph);
+        } else if (algo == "gengraph") {
+            es = std::make_unique<AlgorithmGenGraph>(graph);
+        } else if (algo == "seq-global") {
+            es = std::make_unique<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>(graph);
+        } else {
+            throw std::runtime_error("Unknown algorithm");
         }
         init_time = timer.elapsedSeconds();
     }
 
     std::mt19937_64 gen{0};
     while (repeats--) {
-        incpwl::ScopedTimer timer;
-        const edge_t m = graph.numberOfEdges();
-        const auto requested_switches = switches * m;
-        const auto sucessful_switches = es->do_switches(gen, requested_switches);
-        double run_time = timer.elapsedSeconds();
-        if (detailed) {
-            std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
-            std::cout << "Runtime: " << run_time << "s\n";
-            std::cout << "Initialization time: " << init_time << "s \n";
-            std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
-            std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
-            std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
-            std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
+        std::mutex mutex;
+        std::condition_variable cv;
+        int retValue;
+
+        std::thread benchmarking_thread([&]() {
+            incpwl::ScopedTimer timer;
+            omp_set_num_threads(threads);
+            const edge_t m = graph.numberOfEdges();
+            const auto requested_switches = switches * m;
+            const auto sucessful_switches = es->do_switches(gen, requested_switches);
+            double run_time = timer.elapsedSeconds();
+            if (detailed) {
+                std::cout << "Switches successful: " << (100. * sucessful_switches / requested_switches) << "% \n";
+                std::cout << "Runtime: " << run_time << "s\n";
+                std::cout << "Initialization time: " << init_time << "s \n";
+                std::cout << "Runtime + Initialization: " << run_time + init_time << "s\n";
+                std::cout << "Switches per second: " << requested_switches / run_time * 1e-6 << "M \n";
+                std::cout << "Successful switches per second: " << sucessful_switches / run_time * 1e-6 << "M \n";
+                std::cout << "Runtime for 1m successful switches: " << run_time * (1. * m / sucessful_switches) << "s \n";
+                std::cout << "Runtime for 1m successful switches + Initialization: " << init_time + run_time * (1. * m / sucessful_switches) << "s \n";
+            }
+            std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
+            std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
+            std::cout << std::endl;
+
+            std::unique_lock<std::mutex> lock(mutex);
+            cv.notify_one();
+        });
+
+
+        // implement timeout
+        if (timeout) {
+            benchmarking_thread.detach();
+            std::unique_lock<std::mutex> lock(mutex);
+            if(cv.wait_for(lock, std::chrono::seconds(timeout)) == std::cv_status::timeout) {
+                std::cout << "Timeout after " << timeout << "s" << std::endl;
+                abort();
+            }
+        } else {
+            benchmarking_thread.join();
         }
-        std::cout << "Runtime for 10m successful switches: " << run_time * (10. * m / sucessful_switches) << "s \n";
-        std::cout << "Runtime for 10m successful switches + Initialization: " << init_time + run_time * (10. * m / sucessful_switches) << "s \n";
-        std::cout << std::endl;
     }
 }
 

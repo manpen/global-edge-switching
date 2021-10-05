@@ -21,8 +21,13 @@ public:
 
     virtual NetworKit::Graph get_graph() = 0;
 
+    virtual void enable_logging(unsigned l = 1) {
+        log_level_ = l;
+    };
+
 protected:
     const NetworKit::Graph& input_graph_;
+    unsigned log_level_ = 0;
 
 };
 

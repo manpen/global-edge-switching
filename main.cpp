@@ -20,10 +20,15 @@
 #include <es/algorithms/AlgorithmAdjecencyVector.hpp>
 #include <es/algorithms/AlgorithmParallelNaive.hpp>
 #include <es/algorithms/AlgorithmParallelNaiveGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelNaiveGlobalGaps.hpp>
 #include <es/algorithms/AlgorithmParallelGlobal.hpp>
+#include <es/algorithms/AlgorithmParallelGlobalGaps.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV2.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV3.hpp>
 #include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
+#include <es/algorithms/AlgorithmNetworKit.hpp>
+#include <es/algorithms/AlgorithmGenGraph.hpp>
+#include <es/algorithms/AlgorithmGlobal.hpp>
 
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
@@ -40,7 +45,7 @@
 using namespace es;
 
 template <typename Algo>
-void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_64 &gen, bool detailed = true) {
+void run_benchmark(std::string_view label, NetworKit::Graph& graph, std::mt19937_64 &gen, bool detailed = true) {
     Algo es(graph);
 
     {
@@ -48,6 +53,8 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
         edge_t m = graph.numberOfEdges();
         const auto switches_per_edge = 10;
         const auto requested_switches = switches_per_edge * m;
+
+        es.enable_logging();
 
         ITT_ENABLED(__itt_pause());
         const auto sucessful_switches = es.do_switches(gen, requested_switches);
@@ -58,7 +65,7 @@ void run_benchmark(std::string_view label, NetworKit::Graph graph, std::mt19937_
             std::cout << label << ": Runtime " << timer.elapsedSeconds() << "s\n";
             std::cout << label << ": Switches per second: " << requested_switches / timer.elapsedSeconds() * 1e-6 << "M" << std::endl;
         }
-        std::cout << "Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n";
+        std::cout << label << ": Estimated randomization time: " << timer.elapsedSeconds() * (1. * requested_switches / sucessful_switches) << "s \n\n";
     }
 }
 
@@ -82,12 +89,17 @@ int main() {
 
     for (int repeat = 0; repeat < 5; ++repeat) {
         run_benchmark<AlgorithmVectorSet<tsl::robin_set<edge_t, edge_hash_crc32>>>("robin", graph, gen);
+        run_benchmark<AlgorithmGenGraph>("gengraph", graph, gen);
+        run_benchmark<AlgorithmNetworKit>("nk", graph, gen);
+        run_benchmark<AlgorithmGlobal<tsl::robin_set<edge_t, edge_hash_crc32>>>("global", graph, gen);
         run_benchmark<AlgorithmParallelNaive>("parallel-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobal>("parallel-global", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalGaps>("parallel-global-gaps", graph, gen);
         run_benchmark<AlgorithmParallelNaiveGlobal>("parallel-global-naive", graph, gen);
+        run_benchmark<AlgorithmParallelNaiveGlobalGaps>("parallel-global-gaps-naive", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV2>("parallel-global-no-wait-v2", graph, gen);
         run_benchmark<AlgorithmParallelGlobalNoWaitV3>("parallel-global-no-wait-v3", graph, gen);
-        run_benchmark<AlgorithmParallelGlobalNoWaitV4>("parallel-global-no-wait-v4", graph, gen);
+        run_benchmark<AlgorithmParallelGlobalNoWaitV4<true>>("parallel-global-no-wait-v4", graph, gen);
 
         std::cout << "\n";
     }

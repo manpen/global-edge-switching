@@ -121,7 +121,7 @@ public:
 
             num_switches -= chunk_size;
 
-            if (logging_)
+            if (log_level_)
                 timer.report("chunk");
 
             if (!num_switches)
@@ -130,7 +130,7 @@ public:
             edge_set_.rebuild();
         }
 
-        if (logging_) {
+        if (log_level_) {
             std::cout << "PERF num_switches=" << num_switches_requested << ",num_successful_switches=" << successful_switches
                       << ",num_sync_rejects=" << sync_rejects << "\n";
         }
@@ -147,15 +147,10 @@ public:
         return result;
     }
 
-    void enable_logging(bool val = true) {
-        logging_ = val;
-    }
-
 private:
     std::vector<edge_t> edge_list_;
     edge_set_type edge_set_;
     double chunk_factor_;
-    bool logging_{false};
 
 };
 

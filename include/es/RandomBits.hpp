@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <random>
+#include <tlx/define.hpp>
 
 #define REQUIRES(X)
 
@@ -28,7 +29,7 @@ public:
     result_type get(Gen &gen, unsigned bits) REQUIRES(std::uniform_random_bit_generator<Gen>) {
         assert(bits <= kMaxBits);
         const auto mask = (result_type(1) << bits) - 1;
-        if (valid_ < mask) {
+        if (TLX_UNLIKELY(valid_ < mask)) {
             buffer_ = gen();
             valid_ = gen.max();
 
