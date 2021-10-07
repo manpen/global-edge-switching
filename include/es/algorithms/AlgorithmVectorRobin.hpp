@@ -206,8 +206,8 @@ private:
         // invoke the switching class
         size_t successful_switches = 0;
 
-        tsl::robin_map<edge_t, unsigned, edge_hash_crc32> depth;
-        depth.reserve(2*num_switches);
+        std::conditional_t<CaptureStats,  tsl::robin_map<edge_t, unsigned, edge_hash_crc32>, int> depth;
+        if constexpr(CaptureStats) depth.reserve(2*num_switches);
         auto commit_switch = [&] (Switch &sw) {
             auto success = sw.commit();
             successful_switches += success;
