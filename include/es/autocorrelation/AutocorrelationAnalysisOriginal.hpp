@@ -183,27 +183,10 @@ public:
             const auto requested_switches = factor * switches_per_edge * m/2 + 1;
 
             // perform switchings
-            std::vector<es::edge_t> edgelist;
-            if (algo_label == "ES-Robin") {
-                auto todo_switches = requested_switches;
-                auto step = (factor * switches_per_edge == 1 ? m/2 + 1 : m/2);
-                while (todo_switches > 0) {
-                    const auto num_switches = std::min(step, todo_switches);
-                    Algo es(curr_graph);
-                    successful_switches[snapshotid] += es.do_switches(gen, num_switches, true);
-                    todo_switches -= num_switches;
-
-                    if (todo_switches == 0)
-                        edgelist = es.get_edgelist();
-                    
-                    curr_graph = es.get_graph();
-                }
-            } else {
-                Algo es(curr_graph);
-                successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
-                edgelist = es.get_edgelist();
-                curr_graph = es.get_graph();
-            }
+            Algo es(curr_graph);
+            successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
+            const auto& edgelist = es.get_edgelist();
+            curr_graph = es.get_graph();
 
             // sort edgelist
             std::vector<std::pair<NetworKit::node, NetworKit::node>> pairs_edgelist;

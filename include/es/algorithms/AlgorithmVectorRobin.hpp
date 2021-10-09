@@ -34,8 +34,8 @@ public:
         assert(!edge_list_.empty());
         const auto m = edge_list_.size();
 
+        size_t successful_switches = 0;
         if (Global) {
-            size_t successful_switches = 0;
             shuffle::RandomBits fair_coin;
 
             while (true) {
@@ -79,11 +79,20 @@ public:
             for (size_t i = 0; i < kPrefetchIndices; ++i)
                 sample_and_prefetch();
 
-            return do_n_switches<kPrefetchSwitches, false>(num_switches, [&] {
-                auto index1 = sample_and_prefetch();
-                auto index2 = sample_and_prefetch();
-                return std::make_tuple(index1, index2, index1 < index2);
-            });
+            while (true) {
+                const size_t num_chopped_switches = std::min(edge_list_.size()/2 + 1, num_switches);
+                successful_switches += do_n_switches<kPrefetchSwitches, false>(num_chopped_switches, [&] {
+                    auto index1 = sample_and_prefetch();
+                    auto index2 = sample_and_prefetch();
+                    return std::make_tuple(index1, index2, index1 < index2);
+                });
+
+                num_switches -= num_chopped_switches;
+                if (!num_switches) {
+                    report_stats();
+                    return successful_switches;
+                }
+            }
         }
     }
 
