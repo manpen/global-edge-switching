@@ -1,0 +1,22 @@
+
+benchmark_executable="$1"
+graph_dir="initial-graphs/scaling_avg_d/"
+output_dir="benchmark-results/scaling_avg_d/"
+
+if ! test -d "$output_dir" ; then
+ mkdir "$output_dir"
+fi
+
+spe=10
+repeats=5
+p="$2"
+
+for algo in "global-no-wait-no-prefetch" ; do
+ for graph in "$graph_dir"/* ; do
+  graph_name="$(basename $graph)"
+  echo "graph=$graph_name, algo=$algo, p=$p"
+  bench_file="$output_dir"/"$graph_name""_""$algo""_""$spe""_""$p"
+  "$benchmark_executable" bench "$graph" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+ done
+done
+

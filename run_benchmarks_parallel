@@ -1,0 +1,22 @@
+
+benchmark_executable="$1"
+graph_dir="$2"
+output_dir="$3"
+
+if ! test -d "$output_dir" ; then
+ mkdir "$output_dir"
+fi
+
+spe=10
+repeats=5
+p=32
+
+for algo in "naive-v2" "global-naive-v2" "global-no-wait" ; do
+ for graph in "$graph_dir"/* ; do
+  graph_name="$(basename $graph)"
+  echo "graph=$graph_name, algo=$algo, p=$p"
+  bench_file="$output_dir"/"$graph_name""_""$algo""_""$spe""_""$p"
+  "$benchmark_executable" bench "$graph" "$p" "$repeats" "$algo" "$spe" verbose >> "$bench_file"
+ done
+done
+

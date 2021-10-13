@@ -1,0 +1,17 @@
+
+executable="$1"
+
+graph_dir="initial-graphs"
+if ! test -d "$graph_dir" ; then
+ mkdir "$graph_dir"
+fi
+if ! test -d "$graph_dir/scaling_gamma" ; then
+ mkdir "$graph_dir/scaling_gamma"
+fi
+
+for g in "3" "2.9" "2.8" "2.7" "2.6" "2.5" "2.4" "2.3" "2.2" "2.1" "2.01" ; do
+ for n in 20 22 24 26 28 ; do
+  output_file="$graph_dir/scaling_gamma/powerlaw_""$n""_""$g"
+  "$executable" generate-powerlaw "$output_file" "$n" "$g" 1
+ done
+done

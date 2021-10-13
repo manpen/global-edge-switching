@@ -1,0 +1,32 @@
+
+benchmark_executable="$1"
+
+bench_dir="benchmark-results"
+if ! test -d "$bench_dir"
+then
+ mkdir "$bench_dir"
+fi
+if ! test -d "$bench_dir/max-degrees" ; then
+ mkdir "$bench_dir/max-degrees"
+fi
+
+spe=10
+repeats=5
+
+category="$2"
+echo "$category"
+if test -d "$category" ; then
+ category_name="$(basename $category)"
+ if ! test -d "$bench_dir/max-degrees/$category_name" ; then
+  mkdir "$bench_dir/max-degrees/$category_name"
+ fi
+ for graph in "$category"/* ; do
+  if test -d "$graph" ; then
+   graph_name="$(basename $graph)"
+   graph_edges="$graph/""$graph_name.simp-undir-edges"
+   echo "Logging max-degree of $graph_name"
+   bench_file="$bench_dir/max-degrees/$category_name/""$graph_name"
+   "$benchmark_executable" bench "$graph_edges" 1 1 log-max-degree >> "$bench_file"
+  fi
+ done
+fi

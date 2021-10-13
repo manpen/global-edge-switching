@@ -1,0 +1,16 @@
+
+exe="$1"
+
+bench_dir="benchmark-results"
+if ! test -d "$bench_dir"
+then
+ mkdir "$bench_dir"
+fi
+if ! test -d "$bench_dir/real-world_scatter" ; then
+ mkdir "$bench_dir/real-world_scatter"
+fi
+
+graph_dir="/data/networks/network-repository.com"
+for category in "bio" "bn" "ca" "cit" "eco" "econ" "email" "heter" "ia" "inf" "labeled" "massive" "power" "protein" "proximity" "rec" "retweet_graphs" "road" "sc" "soc" "socfb" "tech" "web" ; do
+ ./log-max-degrees_on_dir "$exe" "$graph_dir/$category"
+done

@@ -1,0 +1,20 @@
+
+benchmark_executable="$1"
+graph_dir="$2"
+output_dir="$3"
+
+if ! test -d "$output_dir" ; then
+ mkdir "$output_dir"
+fi
+
+spe=10
+repeats=5
+
+for algo in "robin-v2" "global-robin" "robin-v2-no-prefetch" "global-robin-no-prefetch" "naive-v2" "global-naive-v2" "global-no-wait" ; do
+ for graph in "$graph_dir"/* ; do
+  graph_name="$(basename $graph)"
+  echo "Benchmarking $algo on $graph_name"
+  bench_file="$output_dir"/"$graph_name""_""$algo""_""$spe""_1"
+  "$benchmark_executable" bench "$graph" 1 "$repeats" "$algo" "$spe" verbose 1000 >> "$bench_file"
+ done
+done

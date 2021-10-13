@@ -1,0 +1,45 @@
+
+executable="$1"
+
+graph_dir="initial-graphs"
+if ! test -d "$graph_dir" ; then
+ mkdir "$graph_dir"
+fi
+if ! test -d "$graph_dir/scaling_avg_d" ; then
+ mkdir "$graph_dir/scaling_avg_d"
+fi
+
+# avg-d 4
+d=4
+for n in 16 18 20 22 24 26 28 ; do
+ output_file="$graph_dir/scaling_avg_d/random_""$n""_""$d"
+ "$executable" generate-random "$output_file" "$n" "$d"
+done
+
+# avg-d 16
+d=16
+for n in 14 16 18 20 22 24 26 ; do
+ output_file="$graph_dir/scaling_avg_d/random_""$n""_""$d"
+ "$executable" generate-random "$output_file" "$n" "$d"
+done
+
+# avg-d 64
+d=64
+for n in 12 14 16 18 20 22 24 ; do
+ output_file="$graph_dir/scaling_avg_d/random_""$n""_""$d"
+ "$executable" generate-random "$output_file" "$n" "$d"
+done
+
+# avg-d 256
+d=256
+for n in 10 12 14 16 18 20 22 ; do
+ output_file="$graph_dir/scaling_avg_d/random_""$n""_""$d"
+ "$executable" generate-random "$output_file" "$n" "$d"
+done
+
+# avg-d 1024
+d=1024
+for n in 8 10 12 14 16 18 20 ; do
+ output_file="$graph_dir/scaling_avg_d/random_""$n""_""$d"
+ "$executable" generate-random "$output_file" "$n" "$d"
+done
