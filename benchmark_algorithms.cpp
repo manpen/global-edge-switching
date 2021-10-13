@@ -35,8 +35,7 @@
 #include <es/algorithms/AlgorithmGenGraph.hpp>
 #include <es/algorithms/AlgorithmGlobal.hpp>
 
-
-
+#include <networkit/graph/GraphTools.hpp>
 #include <networkit/generators/ErdosRenyiGenerator.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
@@ -122,6 +121,11 @@ void benchmark_on_file(int argc, const char** argv) {
     size_t switches = argc > 6 ? std::stoi(argv[6]) : 10;
     bool detailed = argc > 7 ? std::string(argv[7]) == "verbose" : false;
     unsigned timeout = argc > 8 ? std::stoi(argv[8]) : 0;
+
+    if (algo == "log-max-degree") {
+	std::cout << NetworKit::GraphTools::maxDegree(graph) << std::endl;
+	return;
+    }
 
     std::cout << "Starting experiment with parameters\n"
               << "algo=" << algo << "\n"
