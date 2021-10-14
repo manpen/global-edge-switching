@@ -25,7 +25,7 @@ public:
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = false) {
+    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
         assert(!edge_list_.empty());
         std::uniform_int_distribution<size_t> distr{0, edge_list_.size() - 1};
         shuffle::RandomBits fair_coin;

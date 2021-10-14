@@ -4,10 +4,7 @@
 #include <networkit/graph/Graph.hpp>
 #include <networkit/io/EdgeListReader.hpp>
 #include <es/autocorrelation/AutocorrelationAnalysis.hpp>
-#include <es/algorithms/AlgorithmParallelGlobal.hpp>
-#include <es/algorithms/AlgorithmParallelGlobalNoWaitV4.hpp>
-#include <es/algorithms/AlgorithmVectorSet.hpp>
-#include <tsl/robin_set.h>
+#include <es/algorithms/AlgorithmVectorRobin.hpp>
 #include <networkit/generators/HavelHakimiGenerator.hpp>
 #include <networkit/generators/PowerlawDegreeSequence.hpp>
 #include <networkit/auxiliary/Random.hpp>
@@ -162,17 +159,17 @@ int main(int argc, char *argv[]) {
 
         switch (algo) {
             case 1:
-                run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorRobin<false>>
                         (config, gen, "ES-Robin", graphseed, seed, pu_id);
                 break;
             case 2:
-                run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorRobin<true>>
                         (config, gen, "ES-Global-NoWait-V4", graphseed, seed, pu_id);
                 break;
             case 3:
-                run_pld_autocorrelation_analysis<es::AlgorithmVectorSet<tsl::robin_set<es::edge_t, es::edge_hash_crc32>>>
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorRobin<false>>
                         (config, gen, "ES-Robin", graphseed, seed, pu_id, "es");
-                run_pld_autocorrelation_analysis<es::AlgorithmParallelGlobalNoWaitV4>
+                run_pld_autocorrelation_analysis<es::AlgorithmVectorRobin<true>>
                         (config, gen, "ES-Global-NoWait-V4", graphseed, seed, pu_id, "ges");
                 break;
             default:

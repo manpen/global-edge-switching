@@ -30,7 +30,7 @@ public:
         });
     }
 
-    size_t do_switches(std::mt19937_64 &gen, size_t num_switches, bool autocorrelation = true) {
+    size_t do_switches(std::mt19937_64 &gen, size_t num_switches) {
         assert(!edge_list_.empty());
         const auto m = edge_list_.size();
 

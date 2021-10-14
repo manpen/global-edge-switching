@@ -183,7 +183,7 @@ public:
 
             // perform switchings
             Algo es(curr_graph);
-            successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
+            successful_switches[snapshotid] = es.do_switches(gen, requested_switches);
             const auto &edgelist = es.get_edgelist();
 
             // copy edgelist to bit representation

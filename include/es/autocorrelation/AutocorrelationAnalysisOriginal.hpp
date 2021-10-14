@@ -107,8 +107,7 @@ public:
                             int pu_id,
                             size_t switches_per_edge = 1,
                             size_t max_snapshots_per_thinning = std::numeric_limits<size_t>::max())
-            : curr_graph(graph),
-              m_num_nodes(graph.numberOfNodes())
+            : curr_graph(graph)
     {
         const auto thinnings_kgv = kgv(thinnings);
         const auto min_snapshots_filler = min_snapshots_per_thinning / (thinnings_kgv / thinnings.back())
@@ -184,7 +183,7 @@ public:
 
             // perform switchings
             Algo es(curr_graph);
-            successful_switches[snapshotid] = es.do_switches(gen, requested_switches, true);
+            successful_switches[snapshotid] = es.do_switches(gen, requested_switches);
             const auto& edgelist = es.get_edgelist();
             curr_graph = es.get_graph();
 
@@ -318,32 +317,5 @@ public:
     }
 
 private:
-    const es::node_t m_num_nodes;
     NetworKit::Graph curr_graph;
-
-    size_t get_index(es::edge_t e) {
-        const auto uv = es::to_nodes(e);
-        const auto u = uv.first;
-        const auto v = uv.second;
-        const auto d = m_num_nodes;
-        return (d*(d-1)/2) - (d-u) * ((d-u) - 1)/2 + v - u - 1;
-    }
-
-    es::edge_t get_edge(size_t i) {
-        const auto d = m_num_nodes;
-        const auto u = d - 2 - static_cast<es::node_t>(std::floor(std::sqrt(-8*i + 4*d*(d-1) - 7)/2. - 0.5));
-        const auto v = i + u + 1 - d*(d-1)/2 + (d-u)*((d-u)-1)/2;
-        return es::to_edge(u, v);
-    }
-
-    es::edge_t get_next_edge(es::edge_t e) {
-        const auto uv = es::to_nodes(e);
-        const auto u = uv.first;
-        const auto v = uv.second;
-        if (v == m_num_nodes - 1) {
-            return es::to_edge(u + 1, u + 2);
-        } else {
-            return es::to_edge(u, v + 1);
-        }
-    }
 };
