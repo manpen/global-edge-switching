@@ -96,6 +96,10 @@ public:
         return result;
     }
 
+    const std::vector<edge_t>& get_edgelist() const {
+        return edge_list_;
+    }
+
 private:
     using Set = tsl::robin_set<edge_t, edge_hash_crc32>;
     std::vector<edge_t> edge_list_;

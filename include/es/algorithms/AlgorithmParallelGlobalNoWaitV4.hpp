@@ -76,7 +76,9 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         const auto num_switches_requested = num_switches;
         assert(!edge_list_.empty());
 
-        size_t num_rounds = 2 * (num_switches / edge_list_.size());
+	// if m odd and we only want to execute a single superstep, then
+	// there cannot be braces on the division, as the last factor would then be 0
+        size_t num_rounds = 2 * num_switches / edge_list_.size();
         size_t successful_switches = 0;
 
         shuffle::GeneratorProvider gen_prov(gen);
@@ -443,6 +445,10 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
             result.addEdge(u, v);
         }
         return result;
+    }
+
+    const std::vector<edge_t>& get_edgelist() const {
+        return edge_list_;
     }
 
 private:

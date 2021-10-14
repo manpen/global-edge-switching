@@ -4,7 +4,7 @@ project(edge_switching)
 set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
-set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_PROFILE} -O2 -g -fno-omit-frame-pointer -DNDEBUG -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls")
+set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_PROFILE} -O2 -g -fno-omit-frame-pointer -DNDEBUG -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls -fopenmp")
 
 option(ENABLE_ITT "Enable Intels Instrumentation API" OFF)
 
@@ -69,6 +69,15 @@ target_link_libraries(convert_large libedgeswitch)
 
 add_executable(nowait_round_stats nowait_round_stats.cpp)
 target_link_libraries(nowait_round_stats libedgeswitch)
+
+add_executable(autocorrelation_realworld autocorrelation_realworld.cpp)
+target_link_libraries(autocorrelation_realworld PRIVATE libedgeswitch)
+
+add_executable(autocorrelation_realworld_skipnonorig autocorrelation_realworld_skipnonorig.cpp)
+target_link_libraries(autocorrelation_realworld_skipnonorig PRIVATE libedgeswitch)
+
+add_executable(autocorrelation_pld autocorrelation_pld.cpp)
+target_link_libraries(autocorrelation_pld PRIVATE libedgeswitch)
 
 enable_testing()
 add_subdirectory(source/tests)
