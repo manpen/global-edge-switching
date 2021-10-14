@@ -77,7 +77,7 @@ struct AlgorithmParallelGlobalNoWaitV4 : public AlgorithmBase {
         assert(!edge_list_.empty());
 
 	// if m odd and we only want to execute a single superstep, then
-	// this there cannot be braces on the division, as the last factor would then be 0
+	// there cannot be braces on the division, as the last factor would then be 0
         size_t num_rounds = 2 * num_switches / edge_list_.size();
         size_t successful_switches = 0;
 
