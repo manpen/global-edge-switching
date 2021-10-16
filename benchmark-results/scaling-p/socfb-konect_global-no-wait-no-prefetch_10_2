@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=temp2//socfb-konect
+n=59216214
+m=92522012
+p=2
+repeats=5
+timeout=0
+
+Switches successful: 98.3131% 
+Runtime: 297.832s
+Initialization time: 1.55642s 
+Runtime + Initialization: 299.388s
+Switches per second: 3.10652M 
+Successful switches per second: 3.05412M 
+Runtime for 1m successful switches: 30.2942s 
+Runtime for 1m successful switches + Initialization: 31.8506s 
+Runtime for 10m successful switches: 302.942s 
+Runtime for 10m successful switches + Initialization: 304.498s 
+
+Switches successful: 98.891% 
+Runtime: 285.924s
+Initialization time: 1.55642s 
+Runtime + Initialization: 287.481s
+Switches per second: 3.23589M 
+Successful switches per second: 3.20001M 
+Runtime for 1m successful switches: 28.9131s 
+Runtime for 1m successful switches + Initialization: 30.4695s 
+Runtime for 10m successful switches: 289.131s 
+Runtime for 10m successful switches + Initialization: 290.687s 
+
+Switches successful: 98.9374% 
+Runtime: 285.434s
+Initialization time: 1.55642s 
+Runtime + Initialization: 286.99s
+Switches per second: 3.24146M 
+Successful switches per second: 3.20701M 
+Runtime for 1m successful switches: 28.8499s 
+Runtime for 1m successful switches + Initialization: 30.4064s 
+Runtime for 10m successful switches: 288.499s 
+Runtime for 10m successful switches + Initialization: 290.056s 
+
+Switches successful: 98.9484% 
+Runtime: 283.576s
+Initialization time: 1.55642s 
+Runtime + Initialization: 285.133s
+Switches per second: 3.26269M 
+Successful switches per second: 3.22838M 
+Runtime for 1m successful switches: 28.659s 
+Runtime for 1m successful switches + Initialization: 30.2154s 
+Runtime for 10m successful switches: 286.59s 
+Runtime for 10m successful switches + Initialization: 288.146s 
+
+Switches successful: 98.9531% 
+Runtime: 279.537s
+Initialization time: 1.55642s 
+Runtime + Initialization: 281.094s
+Switches per second: 3.30983M 
+Successful switches per second: 3.27518M 
+Runtime for 1m successful switches: 28.2495s 
+Runtime for 1m successful switches + Initialization: 29.8059s 
+Runtime for 10m successful switches: 282.495s 
+Runtime for 10m successful switches + Initialization: 284.051s 
+

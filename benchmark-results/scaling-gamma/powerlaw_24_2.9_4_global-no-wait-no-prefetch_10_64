@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=/home/daniel/edge-switching/initial-graphs_temp/scaling_gamma/powerlaw_24_2.9_4
+n=16777216
+m=12006118
+p=64
+repeats=5
+timeout=0
+
+Switches successful: 98.9963% 
+Runtime: 1.95404s
+Initialization time: 0.257289s 
+Runtime + Initialization: 2.21133s
+Switches per second: 61.4425M 
+Successful switches per second: 60.8257M 
+Runtime for 1m successful switches: 0.197385s 
+Runtime for 1m successful switches + Initialization: 0.454674s 
+Runtime for 10m successful switches: 1.97385s 
+Runtime for 10m successful switches + Initialization: 2.23114s 
+
+Switches successful: 98.9965% 
+Runtime: 1.95787s
+Initialization time: 0.257289s 
+Runtime + Initialization: 2.21516s
+Switches per second: 61.3223M 
+Successful switches per second: 60.7069M 
+Runtime for 1m successful switches: 0.197772s 
+Runtime for 1m successful switches + Initialization: 0.45506s 
+Runtime for 10m successful switches: 1.97772s 
+Runtime for 10m successful switches + Initialization: 2.23501s 
+
+Switches successful: 98.9959% 
+Runtime: 1.93384s
+Initialization time: 0.257289s 
+Runtime + Initialization: 2.19113s
+Switches per second: 62.0844M 
+Successful switches per second: 61.461M 
+Runtime for 1m successful switches: 0.195345s 
+Runtime for 1m successful switches + Initialization: 0.452634s 
+Runtime for 10m successful switches: 1.95345s 
+Runtime for 10m successful switches + Initialization: 2.21074s 
+
+Switches successful: 98.9967% 
+Runtime: 1.94041s
+Initialization time: 0.257289s 
+Runtime + Initialization: 2.1977s
+Switches per second: 61.8742M 
+Successful switches per second: 61.2534M 
+Runtime for 1m successful switches: 0.196007s 
+Runtime for 1m successful switches + Initialization: 0.453296s 
+Runtime for 10m successful switches: 1.96007s 
+Runtime for 10m successful switches + Initialization: 2.21736s 
+
+Switches successful: 98.9961% 
+Runtime: 1.95418s
+Initialization time: 0.257289s 
+Runtime + Initialization: 2.21147s
+Switches per second: 61.4382M 
+Successful switches per second: 60.8214M 
+Runtime for 1m successful switches: 0.197399s 
+Runtime for 1m successful switches + Initialization: 0.454688s 
+Runtime for 10m successful switches: 1.97399s 
+Runtime for 10m successful switches + Initialization: 2.23128s 
+

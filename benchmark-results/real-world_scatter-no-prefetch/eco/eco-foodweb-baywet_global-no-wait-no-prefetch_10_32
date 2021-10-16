@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=/data/networks/network-repository.com/eco/eco-foodweb-baywet/eco-foodweb-baywet.simp-undir-edges
+n=128
+m=2075
+p=32
+repeats=5
+timeout=0
+
+Switches successful: 37.706% 
+Runtime: 0.0128198s
+Initialization time: 0.00872963s 
+Runtime + Initialization: 0.0215494s
+Switches per second: 1.61859M 
+Successful switches per second: 0.610307M 
+Runtime for 1m successful switches: 0.00339993s 
+Runtime for 1m successful switches + Initialization: 0.0121296s 
+Runtime for 10m successful switches: 0.0339993s 
+Runtime for 10m successful switches + Initialization: 0.0427289s 
+
+Switches successful: 36.641% 
+Runtime: 0.0075625s
+Initialization time: 0.00872963s 
+Runtime + Initialization: 0.0162921s
+Switches per second: 2.7438M 
+Successful switches per second: 1.00535M 
+Runtime for 1m successful switches: 0.00206395s 
+Runtime for 1m successful switches + Initialization: 0.0107936s 
+Runtime for 10m successful switches: 0.0206395s 
+Runtime for 10m successful switches + Initialization: 0.0293691s 
+
+Switches successful: 37.1566% 
+Runtime: 0.0108087s
+Initialization time: 0.00872963s 
+Runtime + Initialization: 0.0195383s
+Switches per second: 1.91975M 
+Successful switches per second: 0.713314M 
+Runtime for 1m successful switches: 0.00290896s 
+Runtime for 1m successful switches + Initialization: 0.0116386s 
+Runtime for 10m successful switches: 0.0290896s 
+Runtime for 10m successful switches + Initialization: 0.0378192s 
+
+Switches successful: 37.1518% 
+Runtime: 0.0113307s
+Initialization time: 0.00872963s 
+Runtime + Initialization: 0.0200604s
+Switches per second: 1.8313M 
+Successful switches per second: 0.680362M 
+Runtime for 1m successful switches: 0.00304985s 
+Runtime for 1m successful switches + Initialization: 0.0117795s 
+Runtime for 10m successful switches: 0.0304985s 
+Runtime for 10m successful switches + Initialization: 0.0392281s 
+
+Switches successful: 36.8771% 
+Runtime: 0.0105982s
+Initialization time: 0.00872963s 
+Runtime + Initialization: 0.0193278s
+Switches per second: 1.95789M 
+Successful switches per second: 0.722013M 
+Runtime for 1m successful switches: 0.00287391s 
+Runtime for 1m successful switches + Initialization: 0.0116035s 
+Runtime for 10m successful switches: 0.0287391s 
+Runtime for 10m successful switches + Initialization: 0.0374687s 
+

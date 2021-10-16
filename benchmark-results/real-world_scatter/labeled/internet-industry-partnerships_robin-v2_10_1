@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=robin-v2
+switches=10m
+file=/data/networks/network-repository.com/labeled/internet-industry-partnerships/internet-industry-partnerships.simp-undir-edges
+n=219
+m=630
+p=1
+repeats=5
+timeout=0
+
+Switches successful: 69.4444% 
+Runtime: 0.000731373s
+Initialization time: 0.000104019s 
+Runtime + Initialization: 0.000835392s
+Switches per second: 8.61394M 
+Successful switches per second: 5.9819M 
+Runtime for 1m successful switches: 0.000105318s 
+Runtime for 1m successful switches + Initialization: 0.000209337s 
+Runtime for 10m successful switches: 0.00105318s 
+Runtime for 10m successful switches + Initialization: 0.0011572s 
+
+Switches successful: 69.9365% 
+Runtime: 0.000689803s
+Initialization time: 0.000104019s 
+Runtime + Initialization: 0.000793822s
+Switches per second: 9.13304M 
+Successful switches per second: 6.38733M 
+Runtime for 1m successful switches: 9.86327e-05s 
+Runtime for 1m successful switches + Initialization: 0.000202652s 
+Runtime for 10m successful switches: 0.000986327s 
+Runtime for 10m successful switches + Initialization: 0.00109035s 
+
+Switches successful: 69.6349% 
+Runtime: 0.000693034s
+Initialization time: 0.000104019s 
+Runtime + Initialization: 0.000797053s
+Switches per second: 9.09046M 
+Successful switches per second: 6.33014M 
+Runtime for 1m successful switches: 9.95239e-05s 
+Runtime for 1m successful switches + Initialization: 0.000203543s 
+Runtime for 10m successful switches: 0.000995239s 
+Runtime for 10m successful switches + Initialization: 0.00109926s 
+
+Switches successful: 70.0635% 
+Runtime: 0.000688834s
+Initialization time: 0.000104019s 
+Runtime + Initialization: 0.000792853s
+Switches per second: 9.14589M 
+Successful switches per second: 6.40793M 
+Runtime for 1m successful switches: 9.83157e-05s 
+Runtime for 1m successful switches + Initialization: 0.000202335s 
+Runtime for 10m successful switches: 0.000983157s 
+Runtime for 10m successful switches + Initialization: 0.00108718s 
+
+Switches successful: 70.4921% 
+Runtime: 0.000459626s
+Initialization time: 0.000104019s 
+Runtime + Initialization: 0.000563645s
+Switches per second: 13.7068M 
+Successful switches per second: 9.6622M 
+Runtime for 1m successful switches: 6.52025e-05s 
+Runtime for 1m successful switches + Initialization: 0.000169222s 
+Runtime for 10m successful switches: 0.000652025s 
+Runtime for 10m successful switches + Initialization: 0.000756044s 
+

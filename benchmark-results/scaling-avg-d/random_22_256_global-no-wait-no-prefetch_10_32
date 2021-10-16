@@ -1,0 +1,21 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=/home/daniel/edge-switching/initial-graphs_temp/scaling_avg_d/random_22_256
+n=4194304
+m=1073734836
+p=32
+repeats=1
+timeout=0
+
+Switches successful: 98.7427% 
+Runtime: 313.081s
+Initialization time: 11.7683s 
+Runtime + Initialization: 324.849s
+Switches per second: 34.2958M 
+Successful switches per second: 33.8646M 
+Runtime for 1m successful switches: 31.7067s 
+Runtime for 1m successful switches + Initialization: 43.475s 
+Runtime for 10m successful switches: 317.067s 
+Runtime for 10m successful switches + Initialization: 328.836s 
+

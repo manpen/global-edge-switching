@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=initial-graphs/netrep-sample/ca-hollywood-2009
+n=1069126
+m=56306653
+p=24
+repeats=5
+timeout=0
+
+Switches successful: 97.5119% 
+Runtime: 14.8116s
+Initialization time: 0.734368s 
+Runtime + Initialization: 15.546s
+Switches per second: 38.0152M 
+Successful switches per second: 37.0693M 
+Runtime for 1m successful switches: 1.51895s 
+Runtime for 1m successful switches + Initialization: 2.25332s 
+Runtime for 10m successful switches: 15.1895s 
+Runtime for 10m successful switches + Initialization: 15.9239s 
+
+Switches successful: 97.6706% 
+Runtime: 14.929s
+Initialization time: 0.734368s 
+Runtime + Initialization: 15.6633s
+Switches per second: 37.7164M 
+Successful switches per second: 36.8378M 
+Runtime for 1m successful switches: 1.5285s 
+Runtime for 1m successful switches + Initialization: 2.26287s 
+Runtime for 10m successful switches: 15.285s 
+Runtime for 10m successful switches + Initialization: 16.0194s 
+
+Switches successful: 97.6712% 
+Runtime: 14.9484s
+Initialization time: 0.734368s 
+Runtime + Initialization: 15.6828s
+Switches per second: 37.6674M 
+Successful switches per second: 36.7902M 
+Runtime for 1m successful switches: 1.53048s 
+Runtime for 1m successful switches + Initialization: 2.26485s 
+Runtime for 10m successful switches: 15.3048s 
+Runtime for 10m successful switches + Initialization: 16.0392s 
+
+Switches successful: 97.67% 
+Runtime: 14.936s
+Initialization time: 0.734368s 
+Runtime + Initialization: 15.6704s
+Switches per second: 37.6986M 
+Successful switches per second: 36.8202M 
+Runtime for 1m successful switches: 1.52923s 
+Runtime for 1m successful switches + Initialization: 2.2636s 
+Runtime for 10m successful switches: 15.2923s 
+Runtime for 10m successful switches + Initialization: 16.0267s 
+
+Switches successful: 97.6713% 
+Runtime: 14.9266s
+Initialization time: 0.734368s 
+Runtime + Initialization: 15.661s
+Switches per second: 37.7223M 
+Successful switches per second: 36.8438M 
+Runtime for 1m successful switches: 1.52825s 
+Runtime for 1m successful switches + Initialization: 2.26262s 
+Runtime for 10m successful switches: 15.2825s 
+Runtime for 10m successful switches + Initialization: 16.0169s 
+

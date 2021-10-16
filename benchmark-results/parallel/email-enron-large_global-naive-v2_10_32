@@ -1,0 +1,70 @@
+Starting experiment with parameters
+algo=global-naive-v2
+switches=10m
+file=temp//email-enron-large
+n=33696
+m=180811
+p=32
+repeats=5
+timeout=0
+
+PERF num_switches=1808110,num_successful_switches=1641040,num_sync_retries=13924681071299338581,num_sync_collisions=197
+Switches successful: 90.76% 
+Runtime: 0.0773723s
+Initialization time: 0.0223337s 
+Runtime + Initialization: 0.099706s
+Switches per second: 23.3689M 
+Successful switches per second: 21.2096M 
+Runtime for 1m successful switches: 0.00852494s 
+Runtime for 1m successful switches + Initialization: 0.0308586s 
+Runtime for 10m successful switches: 0.0852494s 
+Runtime for 10m successful switches + Initialization: 0.107583s 
+
+PERF num_switches=1808110,num_successful_switches=1640419,num_sync_retries=329005800852562,num_sync_collisions=4
+Switches successful: 90.7256% 
+Runtime: 0.065427s
+Initialization time: 0.0223337s 
+Runtime + Initialization: 0.0877607s
+Switches per second: 27.6355M 
+Successful switches per second: 25.0725M 
+Runtime for 1m successful switches: 0.00721152s 
+Runtime for 1m successful switches + Initialization: 0.0295452s 
+Runtime for 10m successful switches: 0.0721152s 
+Runtime for 10m successful switches + Initialization: 0.0944489s 
+
+PERF num_switches=1808110,num_successful_switches=1641083,num_sync_retries=280806649125192,num_sync_collisions=3
+Switches successful: 90.7623% 
+Runtime: 0.0675006s
+Initialization time: 0.0223337s 
+Runtime + Initialization: 0.0898343s
+Switches per second: 26.7866M 
+Successful switches per second: 24.3121M 
+Runtime for 1m successful switches: 0.00743707s 
+Runtime for 1m successful switches + Initialization: 0.0297708s 
+Runtime for 10m successful switches: 0.0743707s 
+Runtime for 10m successful switches + Initialization: 0.0967044s 
+
+PERF num_switches=1808110,num_successful_switches=1640361,num_sync_retries=375107498748809,num_sync_collisions=3
+Switches successful: 90.7224% 
+Runtime: 0.0722933s
+Initialization time: 0.0223337s 
+Runtime + Initialization: 0.094627s
+Switches per second: 25.0107M 
+Successful switches per second: 22.6904M 
+Runtime for 1m successful switches: 0.00796863s 
+Runtime for 1m successful switches + Initialization: 0.0303023s 
+Runtime for 10m successful switches: 0.0796863s 
+Runtime for 10m successful switches + Initialization: 0.10202s 
+
+PERF num_switches=1808110,num_successful_switches=1641183,num_sync_retries=280803955198209,num_sync_collisions=3
+Switches successful: 90.7679% 
+Runtime: 0.0723966s
+Initialization time: 0.0223337s 
+Runtime + Initialization: 0.0947303s
+Switches per second: 24.9751M 
+Successful switches per second: 22.6693M 
+Runtime for 1m successful switches: 0.00797601s 
+Runtime for 1m successful switches + Initialization: 0.0303097s 
+Runtime for 10m successful switches: 0.0797601s 
+Runtime for 10m successful switches + Initialization: 0.102094s 
+

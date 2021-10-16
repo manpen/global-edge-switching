@@ -1,0 +1,65 @@
+Starting experiment with parameters
+algo=global-no-wait-no-prefetch
+switches=10m
+file=initial-graphs/random//random_18_10
+n=262144
+m=2621309
+p=2
+repeats=5
+timeout=0
+
+Switches successful: 98.9607% 
+Runtime: 4.3233s
+Initialization time: 0.0616743s 
+Runtime + Initialization: 4.38497s
+Switches per second: 6.06322M 
+Successful switches per second: 6.0002M 
+Runtime for 1m successful switches: 0.43687s 
+Runtime for 1m successful switches + Initialization: 0.498544s 
+Runtime for 10m successful switches: 4.3687s 
+Runtime for 10m successful switches + Initialization: 4.43038s 
+
+Switches successful: 98.9814% 
+Runtime: 3.92711s
+Initialization time: 0.0616743s 
+Runtime + Initialization: 3.98878s
+Switches per second: 6.67491M 
+Successful switches per second: 6.60691M 
+Runtime for 1m successful switches: 0.396752s 
+Runtime for 1m successful switches + Initialization: 0.458427s 
+Runtime for 10m successful switches: 3.96752s 
+Runtime for 10m successful switches + Initialization: 4.0292s 
+
+Switches successful: 98.982% 
+Runtime: 3.93608s
+Initialization time: 0.0616743s 
+Runtime + Initialization: 3.99776s
+Switches per second: 6.65969M 
+Successful switches per second: 6.59189M 
+Runtime for 1m successful switches: 0.397656s 
+Runtime for 1m successful switches + Initialization: 0.459331s 
+Runtime for 10m successful switches: 3.97656s 
+Runtime for 10m successful switches + Initialization: 4.03824s 
+
+Switches successful: 98.9798% 
+Runtime: 3.92105s
+Initialization time: 0.0616743s 
+Runtime + Initialization: 3.98272s
+Switches per second: 6.68523M 
+Successful switches per second: 6.61703M 
+Runtime for 1m successful switches: 0.396146s 
+Runtime for 1m successful switches + Initialization: 0.45782s 
+Runtime for 10m successful switches: 3.96146s 
+Runtime for 10m successful switches + Initialization: 4.02314s 
+
+Switches successful: 98.9766% 
+Runtime: 3.92596s
+Initialization time: 0.0616743s 
+Runtime + Initialization: 3.98763s
+Switches per second: 6.67686M 
+Successful switches per second: 6.60853M 
+Runtime for 1m successful switches: 0.396655s 
+Runtime for 1m successful switches + Initialization: 0.458329s 
+Runtime for 10m successful switches: 3.96655s 
+Runtime for 10m successful switches + Initialization: 4.02823s 
+
